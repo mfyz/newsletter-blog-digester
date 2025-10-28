@@ -2184,6 +2184,243 @@ With testing + formatting:
 
 **Savings: ~5MB + 10-100x faster**
 
+## Pre-commit Hooks with Husky
+
+### Purpose
+
+Automatically run formatting and tests before every commit to ensure code quality and prevent broken code from being committed.
+
+### Installation
+
+```bash
+npm install -D husky lint-staged
+```
+
+### Setup
+
+**Initialize Husky:**
+```bash
+npx husky init
+```
+
+This creates:
+- `.husky/` directory
+- `.husky/pre-commit` hook file
+
+### NPM Scripts
+
+Add to **package.json**:
+```json
+{
+  "scripts": {
+    "format": "dprint fmt",
+    "format:check": "dprint check",
+    "test": "uvu src/server/__tests__",
+    "test:watch": "watchlist src/server -- uvu src/server/__tests__",
+    "test:coverage": "c8 uvu src/server/__tests__",
+    "pre-commit": "npm run format && npm test"
+  },
+  "devDependencies": {
+    "dprint": "^0.45.0",
+    "uvu": "^0.5.6",
+    "sinon": "^17.0.1",
+    "c8": "^9.1.0",
+    "watchlist": "^0.3.1",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
+  }
+}
+```
+
+### Pre-commit Hook Configuration
+
+**.husky/pre-commit:**
+```bash
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run pre-commit script (format + test)
+npm run pre-commit
+```
+
+**Alternative: Using lint-staged (Only format staged files):**
+
+If you want to only format staged files (faster for large codebases):
+
+**package.json:**
+```json
+{
+  "scripts": {
+    "format": "dprint fmt",
+    "format:check": "dprint check",
+    "test": "uvu src/server/__tests__",
+    "test:watch": "watchlist src/server -- uvu src/server/__tests__",
+    "test:coverage": "c8 uvu src/server/__tests__",
+    "pre-commit": "lint-staged && npm test"
+  },
+  "lint-staged": {
+    "*.{js,ts}": ["dprint fmt"],
+    "*.{json,md}": ["dprint fmt"]
+  }
+}
+```
+
+**.husky/pre-commit:**
+```bash
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+npm run pre-commit
+```
+
+### Workflow
+
+**What happens on commit:**
+
+1. **Developer runs:** `git commit -m "message"`
+2. **Husky triggers:** `.husky/pre-commit` hook
+3. **Hook runs:** `npm run pre-commit`
+4. **Pre-commit script:**
+   - **Step 1:** Format all files (or only staged files with lint-staged)
+   - **Step 2:** Run all tests
+5. **If both pass:** Commit succeeds ✅
+6. **If either fails:** Commit is blocked ❌
+
+**Example output:**
+```bash
+$ git commit -m "add new feature"
+
+> pre-commit
+> dprint fmt && npm test
+
+Formatted 3 files
+✓ All tests passed (12 tests in 234ms)
+
+[main abc1234] add new feature
+ 3 files changed, 45 insertions(+), 12 deletions(-)
+```
+
+**If formatting fails:**
+```bash
+$ git commit -m "add broken code"
+
+> pre-commit
+> dprint fmt && npm test
+
+Formatted 2 files
+✗ 2 tests failed
+
+Error: Pre-commit hook failed
+Commit blocked
+```
+
+### Recommendations
+
+**Option 1: Format All + Test All (Simple)**
+- Formats entire codebase
+- Runs full test suite
+- **Pros:** Comprehensive, ensures full project quality
+- **Cons:** Slower for large projects (but this project is small)
+- **Recommended for this project** (small codebase, fast tests)
+
+```json
+{
+  "scripts": {
+    "pre-commit": "npm run format && npm test"
+  }
+}
+```
+
+**Option 2: Format Staged + Test All (Optimized)**
+- Only formats files being committed
+- Runs full test suite (tests are fast with uvu)
+- **Pros:** Faster formatting, still comprehensive testing
+- **Cons:** Slightly more complex setup
+
+```json
+{
+  "scripts": {
+    "pre-commit": "lint-staged && npm test"
+  },
+  "lint-staged": {
+    "*.{js,ts}": ["dprint fmt"],
+    "*.{json,md}": ["dprint fmt"]
+  }
+}
+```
+
+**Option 3: Format Staged + No Tests (Fast)**
+- Only formats staged files
+- No tests (rely on CI/CD for testing)
+- **Pros:** Very fast commits
+- **Cons:** Can commit broken code locally
+- **Not recommended** (tests are fast enough to run)
+
+### Bypassing Pre-commit Hook
+
+**In rare cases**, you may need to skip the pre-commit hook:
+
+```bash
+git commit -m "WIP: incomplete work" --no-verify
+```
+
+⚠️ **Use sparingly** - only for WIP commits or emergencies.
+
+### CI/CD Integration
+
+Even with pre-commit hooks, **always run checks in CI/CD** as a safety net:
+
+**.github/workflows/ci.yml:**
+```yaml
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Coverage
+        run: npm run test:coverage
+```
+
+**Why run checks in CI/CD too:**
+- Catches issues if developers skip hooks (`--no-verify`)
+- Validates pull requests from external contributors
+- Ensures main branch integrity
+- Generates coverage reports
+
+### Total Dev Dependencies
+
+With testing + formatting + pre-commit hooks:
+- **uvu + sinon + c8**: ~1MB
+- **dprint**: ~15MB binary (0 deps)
+- **husky + lint-staged**: ~2MB
+- **Total**: ~18MB
+
+### Performance
+
+**Pre-commit hook timing (estimated):**
+- **Format all files:** ~50-100ms (dprint is fast)
+- **Run all tests:** ~200-500ms (uvu is fast)
+- **Total:** ~250-600ms per commit
+
+**With this project's small codebase, the pre-commit hook adds less than 1 second to each commit.**
+
 ## Future Enhancements
 - [ ] **Post Consolidation**: LLM-based semantic grouping of similar posts across newsletters (embeddings + clustering)
 - [ ] Support multiple feed formats (Atom, JSON Feed)
