@@ -1724,6 +1724,233 @@ This allows users to customize retention periods via the UI.
 - `/api/cron/run` - Manual cron trigger
 - `/api/sites/test-extraction` - Test CSS selectors or LLM prompts
 
+## Testing Strategy
+
+### Backend Testing: **uvu + Sinon**
+
+**Framework Choice:**
+- **uvu**: Ultra-lightweight (5KB), blazing fast test runner
+- **Sinon**: Industry-standard mocking library (~500KB)
+- **c8**: Code coverage reporting
+
+**Why this combination:**
+- ✅ Minimal dependencies (~1MB total)
+- ✅ Fastest test execution
+- ✅ Powerful mocking for external APIs (OpenAI, Slack)
+- ✅ Great for testing Fastify applications
+- ✅ Simple API, easy to learn
+
+**Install:**
+```bash
+npm install -D uvu sinon c8 watchlist
+```
+
+**Test Structure:**
+```
+src/
+  server/
+    __tests__/
+      sites.test.js       - Sites API tests
+      posts.test.js       - Posts API tests
+      config.test.js      - Config API tests
+      extractors.test.js  - RSS/HTML/LLM extraction tests
+      cron.test.js        - Cron job logic tests
+      db.test.js          - Database query tests
+```
+
+**Example Test** (`src/server/__tests__/sites.test.js`):
+```javascript
+import { suite } from 'uvu';
+import * as assert from 'uvu/assert';
+import sinon from 'sinon';
+import fastify from '../server.js';
+
+const Sites = suite('Sites API');
+
+Sites.before.each((context) => {
+  context.app = fastify();
+  context.stubs = [];
+});
+
+Sites.after.each(async (context) => {
+  context.stubs.forEach(stub => stub.restore());
+  await context.app.close();
+});
+
+Sites('GET /api/sites returns array', async ({ app }) => {
+  await app.ready();
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/api/sites'
+  });
+
+  assert.is(response.statusCode, 200);
+  assert.instance(response.json(), Array);
+});
+
+Sites('POST /api/sites creates site', async ({ app }) => {
+  await app.ready();
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/sites',
+    payload: {
+      url: 'https://example.com/rss',
+      title: 'Test Blog',
+      type: 'rss'
+    }
+  });
+
+  assert.is(response.statusCode, 200);
+  const body = response.json();
+  assert.ok(body.id);
+  assert.is(body.title, 'Test Blog');
+});
+
+Sites.run();
+```
+
+**Mocking External APIs** (`src/server/__tests__/extractors.test.js`):
+```javascript
+import { suite } from 'uvu';
+import * as assert from 'uvu/assert';
+import sinon from 'sinon';
+import axios from 'axios';
+import { fetchHTMLWithLLM } from '../extractors.js';
+
+const Extractors = suite('Extractors');
+
+Extractors('should mock OpenAI API', async () => {
+  const openaiStub = sinon.stub().resolves({
+    choices: [{
+      message: {
+        content: JSON.stringify([
+          { title: 'Post 1', url: 'https://example.com/1', content: 'Summary' }
+        ])
+      }
+    }]
+  });
+
+  const result = await openaiStub();
+  assert.is(result.choices[0].message.content, JSON.stringify([...]));
+  assert.is(openaiStub.callCount, 1);
+
+  openaiStub.restore();
+});
+
+Extractors('should mock axios for HTML fetching', async () => {
+  const axiosStub = sinon.stub(axios, 'get').resolves({
+    data: '<html><article><h2>Title</h2></article></html>'
+  });
+
+  const response = await axios.get('https://example.com');
+  assert.ok(response.data.includes('<article>'));
+
+  axiosStub.restore();
+});
+
+Extractors.run();
+```
+
+**package.json scripts:**
+```json
+{
+  "scripts": {
+    "test": "uvu src/server/__tests__",
+    "test:watch": "watchlist src/server -- uvu src/server/__tests__",
+    "test:coverage": "c8 uvu src/server/__tests__"
+  }
+}
+```
+
+**What to Test:**
+- ✅ **API Endpoints**: All CRUD operations (sites, posts, config, logs)
+- ✅ **Database Operations**: Queries, inserts, updates, deletes
+- ✅ **RSS/HTML Extraction**: Parser logic, CSS selectors
+- ✅ **LLM Integration**: Mock OpenAI calls, test prompt handling
+- ✅ **Slack Integration**: Mock webhook calls
+- ✅ **Cron Logic**: Job scheduling, dynamic updates
+- ✅ **Utility Functions**: Logger, date helpers
+- ✅ **Error Handling**: Invalid inputs, API failures
+
+### Frontend Testing: **Skip Component Tests**
+
+**Decision: No component testing**
+
+**Why:**
+- Frontend uses CDN imports (Preact, HTM) - difficult to mock in tests
+- No build system - component testing requires complex setup
+- Components are simple and presentational (Button, Input, PostCard)
+- No complex state management or business logic in components
+- API logic is in backend (already tested)
+- Manual testing during development is sufficient
+
+**Alternative for Frontend Confidence:**
+- **Manual testing**: Test in browser during development
+- **Browser console**: Check for errors on page load
+- **Smoke test**: Load app, click through tabs, verify no crashes
+- **Screenshot testing** (optional): Playwright for visual regression
+
+**If component testing becomes necessary:**
+Use **@web/test-runner** - runs tests in real browsers without build step, works naturally with CDN imports.
+
+### Testing Workflow
+
+**During Development:**
+```bash
+# Run tests in watch mode
+npm run test:watch
+
+# Run all tests once
+npm test
+
+# Generate coverage report
+npm run test:coverage
+```
+
+**Coverage Goals:**
+- Backend/API: >80% coverage
+- Extractors: >90% coverage (critical logic)
+- Database: >70% coverage
+- Frontend: Manual testing only
+
+**Test Database:**
+Consider using an in-memory SQLite database (`:memory:`) or separate test database file to avoid polluting dev data:
+
+```javascript
+// In test setup
+import Database from 'better-sqlite3';
+
+const testDb = new Database(':memory:');
+// Run schema setup
+// Run tests
+testDb.close();
+```
+
+**Continuous Integration:**
+If using CI/CD (GitHub Actions, etc.):
+```yaml
+- name: Run tests
+  run: npm test
+
+- name: Check coverage
+  run: npm run test:coverage
+```
+
+### Testing Dependencies Comparison
+
+| Framework | Size | Speed | Features |
+|-----------|------|-------|----------|
+| **uvu** (chosen) | 5KB | ⚡⚡⚡ Fastest | Minimal, fast |
+| **Vitest** | 10MB | ⚡⚡ Fast | Full-featured, watch, coverage |
+| **Node.js test** | 0KB (native) | ⚡⚡⚡ Very fast | Basic, native |
+| **Jest** | 30MB | ⚡ Slow | Full-featured, heavy |
+
+**Sinon (mocking):** ~500KB, works with all frameworks
+
+**Total testing deps: ~1MB (uvu + sinon + c8)**
+
 ## Future Enhancements
 - [ ] **Post Consolidation**: LLM-based semantic grouping of similar posts across newsletters (embeddings + clustering)
 - [ ] Support multiple feed formats (Atom, JSON Feed)
