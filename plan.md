@@ -1951,6 +1951,239 @@ If using CI/CD (GitHub Actions, etc.):
 
 **Total testing deps: ~1MB (uvu + sinon + c8)**
 
+## Code Formatting: **dprint**
+
+### Why dprint over Prettier
+
+**dprint** is a Rust-based code formatter that's 10-100x faster than Prettier with zero npm dependencies.
+
+**Advantages:**
+- ✅ **Blazing fast** - Written in Rust, compiled to native binary
+- ✅ **Zero npm dependencies** - Downloads standalone binary
+- ✅ **Lightweight** - ~15MB binary (no node_modules bloat)
+- ✅ **Prettier-compatible** - Similar formatting style
+- ✅ **Incremental** - Only formats changed files
+- ✅ **Multi-language** - JS/TS, JSON, Markdown, TOML, Dockerfile
+
+**Comparison:**
+
+| Tool | Size | Speed | Dependencies |
+|------|------|-------|--------------|
+| **dprint** | ~15MB | ⚡⚡⚡ Fastest (10-100x) | 0 |
+| Prettier | ~20MB | ⚡ Slow | Many |
+| Biome | ~25MB | ⚡⚡⚡ Very fast | 0 |
+
+### Installation
+
+```bash
+npm install -D dprint
+```
+
+### Configuration
+
+**dprint.json** (root directory):
+```json
+{
+  "incremental": true,
+  "typescript": {
+    "quoteStyle": "single",
+    "semiColons": "always",
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "useBraces": "preferNone",
+    "bracePosition": "sameLine",
+    "arrowFunction.useParentheses": "preferNone"
+  },
+  "json": {
+    "indentWidth": 2
+  },
+  "markdown": {
+    "lineWidth": 80
+  },
+  "includes": [
+    "src/**/*.{js,ts}",
+    "*.{json,md}"
+  ],
+  "excludes": [
+    "node_modules",
+    "data.db",
+    "*.log",
+    "coverage"
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/typescript-0.91.1.wasm",
+    "https://plugins.dprint.dev/json-0.19.2.wasm",
+    "https://plugins.dprint.dev/markdown-0.16.3.wasm"
+  ]
+}
+```
+
+### NPM Scripts
+
+Add to **package.json**:
+```json
+{
+  "scripts": {
+    "format": "dprint fmt",
+    "format:check": "dprint check",
+    "test": "uvu src/server/__tests__",
+    "test:watch": "watchlist src/server -- uvu src/server/__tests__",
+    "test:coverage": "c8 uvu src/server/__tests__"
+  },
+  "devDependencies": {
+    "dprint": "^0.45.0",
+    "uvu": "^0.5.6",
+    "sinon": "^17.0.1",
+    "c8": "^9.1.0",
+    "watchlist": "^0.3.1"
+  }
+}
+```
+
+### Usage
+
+**Format all files:**
+```bash
+npm run format
+```
+
+**Check formatting (for CI/CD):**
+```bash
+npm run format:check
+```
+
+**Format specific file:**
+```bash
+npx dprint fmt src/server/server.js
+```
+
+**Format specific directory:**
+```bash
+npx dprint fmt src/server/
+```
+
+### Editor Integration
+
+**VS Code:**
+Install the "dprint" extension, then add to `.vscode/settings.json`:
+```json
+{
+  "editor.defaultFormatter": "dprint.dprint",
+  "editor.formatOnSave": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "dprint.dprint"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "dprint.dprint"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "dprint.dprint"
+  }
+}
+```
+
+**Other editors:**
+- WebStorm/IntelliJ: Built-in support via "External Tools"
+- Vim/Neovim: Use ALE or null-ls
+- Sublime Text: Use SublimeLinter
+
+### Pre-commit Hook (Optional)
+
+Automatically format staged files before commit using Husky:
+
+```bash
+npm install -D husky lint-staged
+npx husky init
+```
+
+**.husky/pre-commit:**
+```bash
+#!/usr/bin/env sh
+npx lint-staged
+```
+
+**package.json:**
+```json
+{
+  "lint-staged": {
+    "*.{js,ts}": "dprint fmt",
+    "*.{json,md}": "dprint fmt"
+  }
+}
+```
+
+### CI/CD Integration
+
+**GitHub Actions** (`.github/workflows/ci.yml`):
+```yaml
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Coverage
+        run: npm run test:coverage
+```
+
+### Formatting Rules
+
+**dprint** will enforce:
+- Single quotes for strings
+- Semicolons always
+- 100 character line width
+- 2 space indentation
+- Consistent spacing and newlines
+- Trailing commas where valid
+
+**Example before/after:**
+
+**Before:**
+```javascript
+const foo={bar:1,baz:2}
+function test(a,b,c){
+return a+b+c
+}
+```
+
+**After:**
+```javascript
+const foo = { bar: 1, baz: 2 };
+function test(a, b, c) {
+  return a + b + c;
+}
+```
+
+### Total Dev Dependencies
+
+With testing + formatting:
+- **uvu + sinon + c8**: ~1MB
+- **dprint**: ~15MB binary (0 deps)
+- **Total**: ~16MB
+
+**vs Prettier alternative:**
+- **uvu + sinon + c8**: ~1MB
+- **prettier**: ~20MB
+- **Total**: ~21MB
+
+**Savings: ~5MB + 10-100x faster**
+
 ## Future Enhancements
 - [ ] **Post Consolidation**: LLM-based semantic grouping of similar posts across newsletters (embeddings + clustering)
 - [ ] Support multiple feed formats (Atom, JSON Feed)
