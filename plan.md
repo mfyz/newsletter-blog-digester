@@ -1817,35 +1817,80 @@ import { suite } from 'uvu';
 import * as assert from 'uvu/assert';
 import sinon from 'sinon';
 import axios from 'axios';
-import { fetchHTMLWithLLM } from '../extractors.js';
+import { OpenAI } from 'openai';
+import { fetchHTMLWithLLM, fetchHTMLWithRules } from '../extractors.js';
 
 const Extractors = suite('Extractors');
 
-Extractors('should mock OpenAI API', async () => {
-  const openaiStub = sinon.stub().resolves({
+Extractors('should mock OpenAI for LLM extraction', async () => {
+  // Mock axios to return HTML
+  const axiosStub = sinon.stub(axios, 'get').resolves({
+    data: '<html><article><h2>Post Title</h2><a href="/post1">Read</a></article></html>'
+  });
+
+  // Mock OpenAI chat completion
+  const openaiStub = sinon.stub(OpenAI.prototype.chat.completions, 'create').resolves({
     choices: [{
       message: {
         content: JSON.stringify([
-          { title: 'Post 1', url: 'https://example.com/1', content: 'Summary' }
+          { title: 'Post Title', url: 'https://example.com/post1', content: 'Post summary' }
         ])
       }
     }]
   });
 
-  const result = await openaiStub();
-  assert.is(result.choices[0].message.content, JSON.stringify([...]));
+  // Call the actual function
+  const site = {
+    url: 'https://example.com',
+    type: 'html_llm',
+    extraction_instructions: 'Focus on main articles'
+  };
+
+  const posts = await fetchHTMLWithLLM(site);
+
+  // Assert results
+  assert.is(posts.length, 1);
+  assert.is(posts[0].title, 'Post Title');
+  assert.is(posts[0].url, 'https://example.com/post1');
   assert.is(openaiStub.callCount, 1);
 
+  // Cleanup
+  axiosStub.restore();
   openaiStub.restore();
 });
 
-Extractors('should mock axios for HTML fetching', async () => {
+Extractors('should mock axios for HTML rules extraction', async () => {
   const axiosStub = sinon.stub(axios, 'get').resolves({
-    data: '<html><article><h2>Title</h2></article></html>'
+    data: `
+      <html>
+        <article class="post">
+          <h2><a href="/article1">Article Title</a></h2>
+          <div class="summary">Article content here</div>
+        </article>
+      </html>
+    `
   });
 
-  const response = await axios.get('https://example.com');
-  assert.ok(response.data.includes('<article>'));
+  // Call the actual function
+  const site = {
+    url: 'https://example.com',
+    type: 'html_rules',
+    extraction_rules: JSON.stringify([{
+      name: 'Articles',
+      container: 'article.post',
+      title: 'h2 a',
+      url: 'h2 a',
+      content: '.summary'
+    }])
+  };
+
+  const posts = await fetchHTMLWithRules(site);
+
+  // Assert results
+  assert.is(posts.length, 1);
+  assert.is(posts[0].title, 'Article Title');
+  assert.ok(posts[0].url.includes('/article1'));
+  assert.is(axiosStub.callCount, 1);
 
   axiosStub.restore();
 });
