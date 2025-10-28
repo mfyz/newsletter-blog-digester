@@ -1973,16 +1973,6 @@ const testDb = new Database(':memory:');
 testDb.close();
 ```
 
-**Continuous Integration:**
-If using CI/CD (GitHub Actions, etc.):
-```yaml
-- name: Run tests
-  run: npm test
-
-- name: Check coverage
-  run: npm run test:coverage
-```
-
 ### Testing Dependencies Comparison
 
 | Framework | Size | Speed | Features |
@@ -2091,7 +2081,7 @@ Add to **package.json**:
 npm run format
 ```
 
-**Check formatting (for CI/CD):**
+**Check formatting:**
 ```bash
 npm run format:check
 ```
@@ -2141,36 +2131,6 @@ npx husky init
 ```bash
 #!/usr/bin/env sh
 npm run format
-```
-
-### CI/CD Integration
-
-**GitHub Actions** (`.github/workflows/ci.yml`):
-```yaml
-name: CI
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Run tests
-        run: npm test
-
-      - name: Coverage
-        run: npm run test:coverage
 ```
 
 ### Formatting Rules
@@ -2347,44 +2307,6 @@ git commit -m "WIP: incomplete work" --no-verify
 ```
 
 ⚠️ **Use sparingly** - only for WIP commits or emergencies.
-
-### CI/CD Integration
-
-Even with pre-commit hooks, **always run checks in CI/CD** as a safety net:
-
-**.github/workflows/ci.yml:**
-```yaml
-name: CI
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Run tests
-        run: npm test
-
-      - name: Coverage
-        run: npm run test:coverage
-```
-
-**Why run checks in CI/CD too:**
-- Catches issues if developers skip hooks (`--no-verify`)
-- Validates pull requests from external contributors
-- Ensures main branch integrity
-- Generates coverage reports
 
 ### Total Dev Dependencies
 
