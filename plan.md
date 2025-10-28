@@ -2008,7 +2008,7 @@ If using CI/CD (GitHub Actions, etc.):
 - ✅ **Lightweight** - ~15MB binary (no node_modules bloat)
 - ✅ **Prettier-compatible** - Similar formatting style
 - ✅ **Incremental** - Only formats changed files
-- ✅ **Multi-language** - JS/TS, JSON, Markdown, TOML, Dockerfile
+- ✅ **Multi-language** - JavaScript, JSON, Markdown
 
 **Comparison:**
 
@@ -2030,7 +2030,7 @@ npm install -D dprint
 ```json
 {
   "incremental": true,
-  "typescript": {
+  "javascript": {
     "quoteStyle": "single",
     "semiColons": "always",
     "lineWidth": 100,
@@ -2046,7 +2046,7 @@ npm install -D dprint
     "lineWidth": 80
   },
   "includes": [
-    "src/**/*.{js,ts}",
+    "src/**/*.js",
     "*.{json,md}"
   ],
   "excludes": [
@@ -2056,7 +2056,6 @@ npm install -D dprint
     "coverage"
   ],
   "plugins": [
-    "https://plugins.dprint.dev/typescript-0.91.1.wasm",
     "https://plugins.dprint.dev/json-0.19.2.wasm",
     "https://plugins.dprint.dev/markdown-0.16.3.wasm"
   ]
@@ -2118,9 +2117,6 @@ Install the "dprint" extension, then add to `.vscode/settings.json`:
   "[javascript]": {
     "editor.defaultFormatter": "dprint.dprint"
   },
-  "[typescript]": {
-    "editor.defaultFormatter": "dprint.dprint"
-  },
   "[json]": {
     "editor.defaultFormatter": "dprint.dprint"
   }
@@ -2151,7 +2147,7 @@ npx lint-staged
 ```json
 {
   "lint-staged": {
-    "*.{js,ts}": "dprint fmt",
+    "*.js": "dprint fmt",
     "*.{json,md}": "dprint fmt"
   }
 }
@@ -2304,7 +2300,7 @@ If you want to only format staged files (faster for large codebases):
     "pre-commit": "lint-staged && npm test"
   },
   "lint-staged": {
-    "*.{js,ts}": ["dprint fmt"],
+    "*.js": ["dprint fmt"],
     "*.{json,md}": ["dprint fmt"]
   }
 }
@@ -2388,7 +2384,7 @@ Commit blocked
     "pre-commit": "lint-staged && npm test"
   },
   "lint-staged": {
-    "*.{js,ts}": ["dprint fmt"],
+    "*.js": ["dprint fmt"],
     "*.{json,md}": ["dprint fmt"]
   }
 }
