@@ -2130,27 +2130,17 @@ Install the "dprint" extension, then add to `.vscode/settings.json`:
 
 ### Pre-commit Hook (Optional)
 
-Automatically format staged files before commit using Husky:
+Automatically format files before commit using Husky:
 
 ```bash
-npm install -D husky lint-staged
+npm install -D husky
 npx husky init
 ```
 
 **.husky/pre-commit:**
 ```bash
 #!/usr/bin/env sh
-npx lint-staged
-```
-
-**package.json:**
-```json
-{
-  "lint-staged": {
-    "*.js": "dprint fmt",
-    "*.{json,md}": "dprint fmt"
-  }
-}
+npm run format
 ```
 
 ### CI/CD Integration
@@ -2234,7 +2224,7 @@ Automatically run formatting and tests before every commit to ensure code qualit
 ### Installation
 
 ```bash
-npm install -D husky lint-staged
+npm install -D husky
 ```
 
 ### Setup
@@ -2267,8 +2257,7 @@ Add to **package.json**:
     "sinon": "^17.0.1",
     "c8": "^9.1.0",
     "watchlist": "^0.3.1",
-    "husky": "^9.0.0",
-    "lint-staged": "^15.0.0"
+    "husky": "^9.0.0"
   }
 }
 ```
@@ -2284,36 +2273,6 @@ Add to **package.json**:
 npm run pre-commit
 ```
 
-**Alternative: Using lint-staged (Only format staged files):**
-
-If you want to only format staged files (faster for large codebases):
-
-**package.json:**
-```json
-{
-  "scripts": {
-    "format": "dprint fmt",
-    "format:check": "dprint check",
-    "test": "uvu src/server/__tests__",
-    "test:watch": "watchlist src/server -- uvu src/server/__tests__",
-    "test:coverage": "c8 uvu src/server/__tests__",
-    "pre-commit": "lint-staged && npm test"
-  },
-  "lint-staged": {
-    "*.js": ["dprint fmt"],
-    "*.{json,md}": ["dprint fmt"]
-  }
-}
-```
-
-**.husky/pre-commit:**
-```bash
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-npm run pre-commit
-```
-
 ### Workflow
 
 **What happens on commit:**
@@ -2322,7 +2281,7 @@ npm run pre-commit
 2. **Husky triggers:** `.husky/pre-commit` hook
 3. **Hook runs:** `npm run pre-commit`
 4. **Pre-commit script:**
-   - **Step 1:** Format all files (or only staged files with lint-staged)
+   - **Step 1:** Format all files
    - **Step 2:** Run all tests
 5. **If both pass:** Commit succeeds ✅
 6. **If either fails:** Commit is blocked ❌
@@ -2355,15 +2314,16 @@ Error: Pre-commit hook failed
 Commit blocked
 ```
 
-### Recommendations
+### Configuration Approach
 
-**Option 1: Format All + Test All (Simple)**
+**Format All + Test All**
 - Formats entire codebase
 - Runs full test suite
-- **Pros:** Comprehensive, ensures full project quality
+- **Pros:** Simple setup, comprehensive, ensures full project quality
 - **Cons:** Slower for large projects (but this project is small)
-- **Recommended for this project** (small codebase, fast tests)
+- **Recommended for this project** (small codebase, fast tests with dprint + uvu)
 
+The `pre-commit` script is already configured in package.json:
 ```json
 {
   "scripts": {
@@ -2372,30 +2332,11 @@ Commit blocked
 }
 ```
 
-**Option 2: Format Staged + Test All (Optimized)**
-- Only formats files being committed
-- Runs full test suite (tests are fast with uvu)
-- **Pros:** Faster formatting, still comprehensive testing
-- **Cons:** Slightly more complex setup
-
-```json
-{
-  "scripts": {
-    "pre-commit": "lint-staged && npm test"
-  },
-  "lint-staged": {
-    "*.js": ["dprint fmt"],
-    "*.{json,md}": ["dprint fmt"]
-  }
-}
-```
-
-**Option 3: Format Staged + No Tests (Fast)**
-- Only formats staged files
-- No tests (rely on CI/CD for testing)
-- **Pros:** Very fast commits
-- **Cons:** Can commit broken code locally
-- **Not recommended** (tests are fast enough to run)
+**Why this approach:**
+- dprint is extremely fast (~50-100ms for entire codebase)
+- uvu tests run in ~200-500ms
+- Total pre-commit time: <1 second
+- No need for complex staged-file-only formatting
 
 ### Bypassing Pre-commit Hook
 
@@ -2450,8 +2391,8 @@ jobs:
 With testing + formatting + pre-commit hooks:
 - **uvu + sinon + c8**: ~1MB
 - **dprint**: ~15MB binary (0 deps)
-- **husky + lint-staged**: ~2MB
-- **Total**: ~18MB
+- **husky**: ~1MB
+- **Total**: ~17MB
 
 ### Performance
 
