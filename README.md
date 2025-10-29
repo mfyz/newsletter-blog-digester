@@ -78,16 +78,16 @@ docker compose logs -f
 
 ## Available Scripts
 
-| Script             | Description                          |
-| ------------------ | ------------------------------------ |
-| `npm start`        | Start server in production mode      |
-| `npm run dev`      | Start with nodemon (auto-reload)     |
-| `npm test`         | Run all tests                        |
-| `npm run test:watch` | Run tests in watch mode            |
-| `npm run test:coverage` | Run tests with coverage report |
-| `npm run format`   | Format all code                      |
-| `npm run format:check` | Check formatting without changes |
-| `npm run pre-commit` | Run format + tests (used by Husky) |
+| Script                  | Description                        |
+| ----------------------- | ---------------------------------- |
+| `npm start`             | Start server in production mode    |
+| `npm run dev`           | Start with nodemon (auto-reload)   |
+| `npm test`              | Run all tests                      |
+| `npm run test:watch`    | Run tests in watch mode            |
+| `npm run test:coverage` | Run tests with coverage report     |
+| `npm run format`        | Format all code                    |
+| `npm run format:check`  | Check formatting without changes   |
+| `npm run pre-commit`    | Run format + tests (used by Husky) |
 
 ## Database Schema
 
