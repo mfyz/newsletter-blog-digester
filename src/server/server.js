@@ -60,9 +60,10 @@ fastify.post('/api/sites/test-llm-extraction', sitesAPI.testLLMExtraction);
 fastify.get('/api/posts', postsAPI.getAll);
 fastify.get('/api/posts/:id', postsAPI.getOne);
 
-// Config routes (2 endpoints)
+// Config routes (3 endpoints)
 fastify.get('/api/config', configAPI.getAll);
 fastify.put('/api/config', configAPI.update);
+fastify.post('/api/config/test-ai', configAPI.testAI);
 
 // Logs routes (1 endpoint)
 fastify.get('/api/logs', logsAPI.getAll);

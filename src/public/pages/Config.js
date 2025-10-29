@@ -10,6 +10,8 @@ export default function Config() {
   const [config, setConfig] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   useEffect(() => {
     loadConfig();
@@ -56,6 +58,36 @@ export default function Config() {
 
   const updateField = (key, value) => {
     setConfig({ ...config, [key]: value });
+  };
+
+  const testAIConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      const response = await fetch('/api/config/test-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          openai_api_key: config.openai_api_key,
+          openai_base_url: config.openai_base_url,
+          openai_model: config.openai_model
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTestResult({ success: true, message: data.response });
+      } else {
+        setTestResult({ success: false, message: data.error || 'Test failed' });
+      }
+    } catch (error) {
+      console.error('AI test failed:', error);
+      setTestResult({ success: false, message: 'Failed to connect to server' });
+    } finally {
+      setTesting(false);
+    }
   };
 
   if (loading) {
@@ -121,7 +153,7 @@ export default function Config() {
               placeholder="https://api.openai.com/v1"
             />
             <p class="text-sm text-gray-500">
-              Base URL for OpenAI-compatible API. Use http://localhost:1234/v1 for local providers like Ollama or LM Studio
+              Base URL for OpenAI-compatible API. Use http://host.docker.internal:1234/v1 for local providers like Ollama or LM Studio running on your host machine
             </p>
 
             <${Input}
@@ -134,6 +166,32 @@ export default function Config() {
               Model to use for summarization and extraction (e.g., gpt-3.5-turbo, gpt-4, or local model names)
             </p>
 
+            <!-- Test Connection Button -->
+            <div class="pt-4 border-t">
+              <${Button}
+                type="button"
+                variant="secondary"
+                onClick=${testAIConnection}
+                disabled=${testing || !config.openai_api_key || !config.openai_base_url}
+              >
+                ${testing ? 'Testing...' : 'Test AI Connection'}
+              </${Button}>
+
+              ${testResult ? html`
+                <div class="${testResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-md p-3 mt-3">
+                  <p class="${testResult.success ? 'text-green-800' : 'text-red-800'} text-sm">
+                    ${testResult.success ? '✓ Success: ' : '✗ Error: '}${testResult.message}
+                  </p>
+                </div>
+              ` : null}
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Prompts Card -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">AI Prompts</h3>
+          <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
                 Summarization Prompt
