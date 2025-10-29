@@ -36,3 +36,31 @@ export async function getOne(req, reply) {
     return reply.code(500).send({ error: 'Failed to fetch post' });
   }
 }
+
+/**
+ * POST /api/posts/truncate - Delete all posts
+ */
+export async function truncate(req, reply) {
+  try {
+    const result = db.truncatePosts();
+    logger.info(`Truncated posts table, deleted ${result.deletedCount} posts`);
+    return { success: true, deletedCount: result.deletedCount };
+  } catch (error) {
+    logger.error('Failed to truncate posts', { error: error.message });
+    return reply.code(500).send({ error: 'Failed to truncate posts' });
+  }
+}
+
+/**
+ * DELETE /api/posts/:id - Delete a single post
+ */
+export async function remove(req, reply) {
+  try {
+    db.deletePost(req.params.id);
+    logger.info('Post deleted', { id: req.params.id });
+    return { success: true };
+  } catch (error) {
+    logger.error('Failed to delete post', { error: error.message });
+    return reply.code(500).send({ error: 'Failed to delete post' });
+  }
+}

@@ -71,13 +71,19 @@ export default function App() {
           </div>
 
           <nav class="mt-4 flex space-x-4">
-            ${['posts', 'sites', 'tools', 'config', 'logs'].map(tab => html`
+            ${[
+              { id: 'posts', label: '📰 Posts' },
+              { id: 'sites', label: '🌐 Sites' },
+              { id: 'tools', label: '🔧 Tools' },
+              { id: 'config', label: '⚙️ Settings' },
+              { id: 'logs', label: '📋 Logs' }
+            ].map(tab => html`
               <${Button}
-                key=${tab}
-                onClick=${() => navigateToTab(tab)}
-                variant=${currentTab === tab ? 'primary' : 'secondary'}
+                key=${tab.id}
+                onClick=${() => navigateToTab(tab.id)}
+                variant=${currentTab === tab.id ? 'primary' : 'secondary'}
               >
-                ${tab.charAt(0).toUpperCase() + tab.slice(1)}
+                ${tab.label}
               </${Button}>
             `)}
           </nav>

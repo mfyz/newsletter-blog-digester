@@ -178,3 +178,25 @@ export async function testLLMExtraction(req, reply) {
     return reply.code(500).send({ error: error.message });
   }
 }
+
+/**
+ * POST /api/sites/:id/toggle - Toggle site active status
+ */
+export async function toggleActive(req, reply) {
+  try {
+    const { id } = req.params;
+    const site = db.getSite(id);
+
+    if (!site) {
+      return reply.code(404).send({ error: 'Site not found' });
+    }
+
+    const newActiveStatus = site.is_active ? 0 : 1;
+    db.updateSite(id, { is_active: newActiveStatus });
+
+    return { success: true, is_active: newActiveStatus };
+  } catch (error) {
+    logger.error('Failed to toggle site', { error: error.message });
+    return reply.code(500).send({ error: 'Failed to toggle site' });
+  }
+}

@@ -62,6 +62,31 @@ export default function Posts() {
     }
   };
 
+  const handleDeletePost = async (postId, postTitle) => {
+    if (!confirm(`Are you sure you want to delete this post?\n\n"${postTitle}"\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/posts/${postId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Remove the post from state
+        setPosts(posts.filter(p => p.id !== postId));
+        setExpandedPost(null);
+        alert('Post deleted successfully');
+      } else {
+        const data = await response.json();
+        alert('Failed to delete post: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+      alert('Failed to delete post');
+    }
+  };
+
   const filteredPosts = posts.filter(post => {
     if (filter.site !== 'all' && post.site_id !== parseInt(filter.site)) return false;
     if (filter.search && !post.title.toLowerCase().includes(filter.search.toLowerCase())) return false;
@@ -85,7 +110,7 @@ export default function Posts() {
     <div class="space-y-4">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">Posts</h2>
+        <h2 class="text-2xl font-bold text-gray-900">📰 Posts</h2>
         <div class="text-sm text-gray-500">
           ${filteredPosts.length} posts found
         </div>
@@ -222,6 +247,19 @@ export default function Posts() {
                                 <span class="font-medium">Sent to Slack:</span> ${new Date(post.sent_to_slack).toLocaleString()}
                               </div>
                             `}
+                          </div>
+
+                          <!-- Delete Button -->
+                          <div class="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+                            <button
+                              onClick=${(e) => {
+                                e.stopPropagation();
+                                handleDeletePost(post.id, post.title);
+                              }}
+                              class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                            >
+                              🗑️ Delete Post
+                            </button>
                           </div>
                         </div>
                       </td>

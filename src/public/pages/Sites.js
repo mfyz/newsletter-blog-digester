@@ -191,10 +191,8 @@ export default function Sites({ onNavigate }) {
 
   const toggleActive = async (site) => {
     try {
-      await fetch(`/api/sites/${site.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: site.is_active ? 0 : 1 })
+      await fetch(`/api/sites/${site.id}/toggle`, {
+        method: 'POST'
       });
       loadSites();
     } catch (error) {
@@ -217,9 +215,9 @@ export default function Sites({ onNavigate }) {
     <div class="space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-gray-900">Sites</h2>
+        <h2 class="text-2xl font-bold text-gray-900">🌐 Sites</h2>
         <${Button} onClick=${openAddModal} variant="primary">
-          + Add Site
+          ➕ Add Site
         </${Button}>
       </div>
 
@@ -268,13 +266,10 @@ export default function Sites({ onNavigate }) {
                   <td class="px-6 py-4 whitespace-nowrap">
                     <button
                       onClick=${() => toggleActive(site)}
-                      class="flex items-center"
+                      class="text-2xl hover:scale-110 transition-transform cursor-pointer"
+                      title=${site.is_active ? 'Active - Click to deactivate' : 'Inactive - Click to activate'}
                     >
-                      <span class=${'px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' + (
-                        site.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      )}>
-                        ${site.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                      ${site.is_active ? '🟢' : '🔴'}
                     </button>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -285,13 +280,13 @@ export default function Sites({ onNavigate }) {
                       onClick=${() => openEditModal(site)}
                       class="text-blue-600 hover:text-blue-900 mr-4"
                     >
-                      Edit
+                      ✏️ Edit
                     </button>
                     <button
                       onClick=${() => handleDelete(site.id)}
                       class="text-red-600 hover:text-red-900"
                     >
-                      Delete
+                      🗑️ Delete
                     </button>
                   </td>
                 </tr>

@@ -8,6 +8,17 @@ import { logger, toAbsoluteUrl } from './utils.js';
 const rssParser = new Parser();
 
 /**
+ * Clean HTML by removing script and style tags with their contents
+ */
+function cleanHTML(html) {
+  // Remove script tags and their contents
+  html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  // Remove style tags and their contents
+  html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  return html;
+}
+
+/**
  * Main function to fetch content from a site based on its type
  */
 export async function fetchSiteContent(site) {
@@ -168,6 +179,9 @@ export async function fetchHTMLWithLLM(site) {
 
     const html = response.data;
 
+    // Clean HTML to remove script and style tags
+    const cleanedHTML = cleanHTML(html);
+
     // Always use base prompt
     const basePrompt = db.getConfig('prompt_html_extract_base');
 
@@ -184,10 +198,9 @@ export async function fetchHTMLWithLLM(site) {
         { role: 'system', content: fullPrompt },
         {
           role: 'user',
-          content: `Base URL: ${site.url}\n\nHTML (truncated to first 50000 chars):\n${html.substring(0, 50000)}`,
+          content: `Base URL: ${site.url}\n\nHTML (truncated to first 10000 chars):\n${cleanedHTML.substring(0, 10000)}`,
         },
       ],
-      response_format: { type: 'json_object' },
       temperature: 0.3,
     });
 

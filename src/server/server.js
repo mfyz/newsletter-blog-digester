@@ -47,18 +47,21 @@ fastify.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
-// Sites routes (7 endpoints)
+// Sites routes (8 endpoints)
 fastify.get('/api/sites', sitesAPI.getAll);
 fastify.post('/api/sites', sitesAPI.create);
 fastify.get('/api/sites/:id', sitesAPI.getOne);
 fastify.put('/api/sites/:id', sitesAPI.update);
 fastify.delete('/api/sites/:id', sitesAPI.remove);
+fastify.post('/api/sites/:id/toggle', sitesAPI.toggleActive);
 fastify.post('/api/sites/test-extraction', sitesAPI.testExtraction);
 fastify.post('/api/sites/test-llm-extraction', sitesAPI.testLLMExtraction);
 
-// Posts routes (2 endpoints)
+// Posts routes (4 endpoints)
 fastify.get('/api/posts', postsAPI.getAll);
 fastify.get('/api/posts/:id', postsAPI.getOne);
+fastify.post('/api/posts/truncate', postsAPI.truncate);
+fastify.delete('/api/posts/:id', postsAPI.remove);
 
 // Config routes (3 endpoints)
 fastify.get('/api/config', configAPI.getAll);

@@ -90,13 +90,36 @@ export default function Config() {
     }
   };
 
+  const handleTruncatePosts = async () => {
+    if (!confirm('⚠️ WARNING: This will permanently delete ALL posts from the database. This action cannot be undone. Are you sure you want to continue?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/posts/truncate', {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`Successfully deleted ${data.deletedCount || 'all'} posts from the database.`);
+      } else {
+        alert('Failed to truncate posts: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to truncate posts:', error);
+      alert('Failed to truncate posts');
+    }
+  };
+
   if (loading) {
     return html`<div class="text-center py-12 text-gray-500">Loading configuration...</div>`;
   }
 
   return html`
     <div class="space-y-6">
-      <h2 class="text-2xl font-bold text-gray-900">Configuration</h2>
+      <h2 class="text-2xl font-bold text-gray-900">⚙️ Settings</h2>
 
       <form onSubmit=${handleSubmit} class="space-y-6">
         <!-- General Settings Card -->
@@ -255,10 +278,32 @@ export default function Config() {
             variant="primary"
             disabled=${saving}
           >
-            ${saving ? 'Saving...' : 'Save Configuration'}
+            ${saving ? '⏳ Saving...' : '💾 Save Configuration'}
           </${Button}>
         </div>
       </form>
+
+      <!-- Danger Zone Card -->
+      <div class="bg-white rounded-lg shadow p-6 border-2 border-red-500 mt-12">
+        <h3 class="text-lg font-semibold text-red-600 mb-4">⚠️ Danger Zone</h3>
+        <div class="space-y-4">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <h4 class="font-medium text-gray-900">Truncate All Posts</h4>
+              <p class="text-sm text-gray-600 mt-1">
+                Permanently delete all posts from the database. This is useful for testing AI prompts or starting fresh. This action cannot be undone.
+              </p>
+            </div>
+            <${Button}
+              type="button"
+              onClick=${handleTruncatePosts}
+              class="ml-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+            >
+              🗑️ Truncate Posts
+            </${Button}>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 }

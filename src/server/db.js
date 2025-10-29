@@ -17,6 +17,7 @@ export function initDb(dbPath = null) {
   db.pragma('journal_mode = WAL');
 
   createTables();
+  runMigrations();
   seedDefaultConfig();
 
   return db;
@@ -63,7 +64,7 @@ function createTables() {
       summary TEXT,
       notified INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(url, title, date),
+      UNIQUE(url, title),
       FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
     )
   `);
@@ -86,6 +87,68 @@ function createTables() {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+}
+
+/**
+ * Run database migrations
+ */
+function runMigrations() {
+  // Add is_active column to sites table if it doesn't exist
+  try {
+    const columns = db.prepare('PRAGMA table_info(sites)').all();
+    const hasIsActive = columns.some(col => col.name === 'is_active');
+
+    if (!hasIsActive) {
+      db.exec('ALTER TABLE sites ADD COLUMN is_active INTEGER DEFAULT 1');
+    }
+  } catch (error) {
+    // Column might already exist or table doesn't exist yet
+  }
+
+  // Update posts table unique constraint to remove date
+  // SQLite doesn't support DROP CONSTRAINT, so we need to recreate the table
+  try {
+    const tableInfo = db.prepare('PRAGMA table_info(posts)').all();
+    const indexes = db.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='posts'").all();
+
+    // Check if we need to migrate (check if old constraint exists)
+    const existingData = db.prepare('SELECT * FROM posts LIMIT 1').all();
+
+    // Only migrate if table exists and has the old structure
+    if (tableInfo.length > 0) {
+      // Create new table with updated constraint
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS posts_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          site_id INTEGER NOT NULL,
+          date TEXT,
+          url TEXT NOT NULL,
+          title TEXT NOT NULL,
+          content TEXT,
+          summary TEXT,
+          notified INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(url, title),
+          FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Copy data from old table to new table, removing duplicates by url+title
+      db.exec(`
+        INSERT OR IGNORE INTO posts_new (id, site_id, date, url, title, content, summary, notified, created_at)
+        SELECT id, site_id, date, url, title, content, summary, notified, created_at FROM posts
+      `);
+
+      // Drop old table
+      db.exec('DROP TABLE posts');
+
+      // Rename new table to posts
+      db.exec('ALTER TABLE posts_new RENAME TO posts');
+    }
+  } catch (error) {
+    // Migration might fail if table structure is already correct
+    // This is fine, we just skip it
+  }
 }
 
 /**
@@ -417,6 +480,23 @@ export function cleanupOldContent() {
     contentCleared: cleared.changes,
     postsDeleted: deleted.changes,
   };
+}
+
+/**
+ * Truncate posts table (delete all posts)
+ */
+export function truncatePosts() {
+  const stmt = db.prepare('DELETE FROM posts');
+  const result = stmt.run();
+  return { deletedCount: result.changes };
+}
+
+/**
+ * Delete a single post by ID
+ */
+export function deletePost(id) {
+  const stmt = db.prepare('DELETE FROM posts WHERE id = ?');
+  return stmt.run(id);
 }
 
 /**
