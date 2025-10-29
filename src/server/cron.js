@@ -183,7 +183,9 @@ function startCleanupJob() {
   logger.info('Cleanup job scheduled for midnight daily');
 }
 
-// Initialize cleanup job
-startCleanupJob();
+// Initialize cleanup job (skip during tests)
+if (process.env.NODE_ENV !== 'test') {
+  startCleanupJob();
+}
 
 export default { runCheck, updateSchedule, initCron };

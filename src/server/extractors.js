@@ -154,7 +154,8 @@ export async function fetchHTMLWithLLM(site) {
       throw new Error('OpenAI API key not configured');
     }
 
-    const openai = new OpenAI({ apiKey });
+    const baseURL = db.getConfig('openai_base_url') || 'https://api.openai.com/v1';
+    const openai = new OpenAI({ apiKey, baseURL });
 
     // Fetch HTML
     const response = await axios.get(site.url, {
@@ -178,7 +179,7 @@ export async function fetchHTMLWithLLM(site) {
 
     // Call OpenAI
     const extraction = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: db.getConfig('openai_model') || 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: fullPrompt },
         {
@@ -248,13 +249,14 @@ export async function summarizePost(content) {
       throw new Error('OpenAI API key not configured');
     }
 
-    const openai = new OpenAI({ apiKey });
+    const baseURL = db.getConfig('openai_base_url') || 'https://api.openai.com/v1';
+    const openai = new OpenAI({ apiKey, baseURL });
 
     // Get summarization prompt from config
     const prompt = db.getConfig('prompt_summarization');
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: db.getConfig('openai_model') || 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: prompt },
         { role: 'user', content: content.substring(0, 10000) }, // Limit content size

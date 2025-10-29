@@ -8,7 +8,7 @@ import Modal from '../components/Modal.js';
 
 const html = htm.bind(h);
 
-export default function Sites() {
+export default function Sites({ onNavigate }) {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -17,8 +17,28 @@ export default function Sites() {
     url: '',
     title: '',
     type: 'rss',
-    is_active: 1
+    is_active: 1,
+    extraction_rules: '',
+    extraction_instructions: ''
   });
+
+  // Parse extraction rules into individual fields
+  const getRules = () => {
+    if (!formData.extraction_rules) return {};
+    try {
+      return typeof formData.extraction_rules === 'string'
+        ? JSON.parse(formData.extraction_rules)
+        : formData.extraction_rules;
+    } catch {
+      return {};
+    }
+  };
+
+  const updateRule = (key, value) => {
+    const rules = getRules();
+    rules[key] = value;
+    setFormData({ ...formData, extraction_rules: JSON.stringify(rules) });
+  };
 
   useEffect(() => {
     loadSites();
@@ -43,7 +63,9 @@ export default function Sites() {
       url: '',
       title: '',
       type: 'rss',
-      is_active: 1
+      is_active: 1,
+      extraction_rules: '',
+      extraction_instructions: ''
     });
     setShowModal(true);
   };
@@ -54,9 +76,70 @@ export default function Sites() {
       url: site.url,
       title: site.title,
       type: site.type,
-      is_active: site.is_active
+      is_active: site.is_active,
+      extraction_rules: site.extraction_rules || '',
+      extraction_instructions: site.extraction_instructions || ''
     });
     setShowModal(true);
+  };
+
+  const handleTest = async () => {
+    if (!formData.url) {
+      alert('Please enter a URL first');
+      return;
+    }
+
+    if (formData.type === 'html_rules') {
+      const rules = getRules();
+      if (!rules.postContainer || !rules.title || !rules.link) {
+        alert('Please fill in at least the Post Container, Title, and Link selectors');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/sites/test-extraction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: formData.url, extraction_rules: rules })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert(`Success! Found ${data.total} posts.\n\nFirst post: ${data.posts[0]?.title || 'N/A'}\n\nCheck browser console for full results.`);
+          console.log('Test Results:', data);
+        } else {
+          alert('Test failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (error) {
+        alert('Test failed: ' + error.message);
+      }
+    } else if (formData.type === 'html_llm') {
+      if (!formData.extraction_instructions) {
+        alert('Please enter extraction instructions first');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/sites/test-llm-extraction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: formData.url,
+            extraction_instructions: formData.extraction_instructions
+          })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert(`Success! Found ${data.count} posts.\n\nFirst post: ${data.posts[0]?.title || 'N/A'}\n\nCheck browser console for full results.`);
+          console.log('Test Results:', data);
+        } else {
+          alert('Test failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (error) {
+        alert('Test failed: ' + error.message);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -249,17 +332,129 @@ export default function Sites() {
             options=${typeOptions}
           />
 
-          <div class="flex justify-end gap-3 mt-6">
-            <${Button}
-              type="button"
-              variant="secondary"
-              onClick=${() => setShowModal(false)}
-            >
-              Cancel
-            </${Button}>
-            <${Button} type="submit" variant="primary">
-              ${editingSite ? 'Update' : 'Create'}
-            </${Button}>
+          ${formData.type === 'html_rules' && html`
+            <div class="space-y-3 border-t pt-4">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-gray-900">CSS Selectors</h3>
+                ${onNavigate && html`
+                  <${Button}
+                    type="button"
+                    variant="secondary"
+                    onClick=${() => {
+                      setShowModal(false);
+                      onNavigate('selector-builder');
+                    }}
+                  >
+                    🔧 Open Builder & Tester
+                  </${Button}>
+                `}
+              </div>
+
+              <${Input}
+                label="Post Container *"
+                placeholder=".post, article, .entry"
+                value=${getRules().postContainer || ''}
+                onInput=${e => updateRule('postContainer', e.target.value)}
+                helpText="CSS selector that matches each post/article on the page"
+                required=${true}
+              />
+
+              <${Input}
+                label="Title Selector *"
+                placeholder=".title, h2, .post-title"
+                value=${getRules().title || ''}
+                onInput=${e => updateRule('title', e.target.value)}
+                helpText="Selector for post title (within each post)"
+                required=${true}
+              />
+
+              <${Input}
+                label="Link Selector *"
+                placeholder="a, .title a, .permalink"
+                value=${getRules().link || ''}
+                onInput=${e => updateRule('link', e.target.value)}
+                helpText="Selector for post URL (href attribute)"
+                required=${true}
+              />
+
+              <${Input}
+                label="Date Selector (optional)"
+                placeholder=".date, time, .published"
+                value=${getRules().date || ''}
+                onInput=${e => updateRule('date', e.target.value)}
+                helpText="Selector for publication date"
+              />
+
+              <${Input}
+                label="Content Selector (optional)"
+                placeholder=".content, .excerpt, p"
+                value=${getRules().content || ''}
+                onInput=${e => updateRule('content', e.target.value)}
+                helpText="Selector for post content/excerpt"
+              />
+            </div>
+          `}
+
+          ${formData.type === 'html_llm' && html`
+            <div class="border-t pt-4">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-gray-900">LLM Extraction Instructions</h3>
+                ${onNavigate && html`
+                  <${Button}
+                    type="button"
+                    variant="secondary"
+                    onClick=${() => {
+                      setShowModal(false);
+                      onNavigate('prompt-editor');
+                    }}
+                  >
+                    🤖 Open LLM Tester
+                  </${Button}>
+                `}
+              </div>
+
+              <textarea
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="4"
+                placeholder="Extract all blog posts with their titles, URLs, and publication dates..."
+                value=${formData.extraction_instructions}
+                onInput=${e => setFormData({ ...formData, extraction_instructions: e.target.value })}
+              ></textarea>
+              <p class="text-xs text-gray-500 mt-2">
+                Describe what content to extract from the page. The AI will intelligently parse the HTML based on your instructions.
+              </p>
+              <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mt-3">
+                <p class="text-xs text-yellow-800">
+                  ⚠️ <strong>Note:</strong> LLM extraction costs ~$0.01-0.05 per check. Make sure OpenAI API key is configured in Config tab.
+                </p>
+              </div>
+            </div>
+          `}
+
+          <div class="flex justify-between mt-6">
+            <div>
+              ${(formData.type === 'html_rules' || formData.type === 'html_llm') && html`
+                <${Button}
+                  type="button"
+                  variant="secondary"
+                  onClick=${handleTest}
+                >
+                  🧪 Test Extraction
+                </${Button}>
+              `}
+            </div>
+            <div class="flex gap-3">
+              <${Button}
+                type="button"
+                variant="secondary"
+                onClick=${() => setShowModal(false)}
+              >
+                Cancel
+              </${Button}>
+              <${Button} type="submit" variant="primary">
+                ${editingSite ? 'Update' : 'Create'}
+              </${Button}>
+            </div>
           </div>
         </form>
       </${Modal}>

@@ -3,6 +3,7 @@ node_modules/
 
 # Database
 data.db
+data.db*
 *.db
 *.sqlite
 *.sqlite3
@@ -73,3 +74,5 @@ coverage/
 # Package lock files (optional - uncomment if you want to ignore)
 # package-lock.json
 # yarn.lock
+
+.playwright-mcp

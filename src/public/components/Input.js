@@ -14,6 +14,7 @@ export default function Input({
   disabled = false,
   className = '',
   error = '',
+  helpText = '',
   ...props
 }) {
   const inputClasses = `w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -39,6 +40,9 @@ export default function Input({
         class=${inputClasses}
         ...${props}
       />
+      ${helpText && !error && html`
+        <p class="mt-1 text-xs text-gray-500">${helpText}</p>
+      `}
       ${error && html`
         <p class="mt-1 text-sm text-red-500">${error}</p>
       `}

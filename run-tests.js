@@ -95,6 +95,7 @@ async function runTests() {
   } catch (error) {
     console.error(`${colors.red}✗ Tests failed${colors.reset}`);
     if (error.stdout) console.error(error.stdout);
+    if (error.stderr) console.error(error.stderr);
     process.exit(1);
   }
 }

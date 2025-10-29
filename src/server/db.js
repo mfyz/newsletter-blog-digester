@@ -95,6 +95,8 @@ function seedDefaultConfig() {
   const defaults = {
     schedule: '0 9 * * *', // 9 AM daily
     openai_api_key: '',
+    openai_base_url: 'https://api.openai.com/v1',
+    openai_model: 'gpt-3.5-turbo',
     slack_webhook_url: '',
     prompt_summarization: `You are a content summarizer. Summarize the following article content in 2-3 concise sentences. Focus on the main points and key takeaways.`,
     prompt_html_extract_base: `You are an HTML parser. Extract all posts/articles/links from the provided HTML.
