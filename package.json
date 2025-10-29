@@ -1,0 +1,49 @@
+{
+  "name": "newsletter-blog-digester",
+  "version": "1.0.0",
+  "description": "A Fastify application that periodically checks websites/blogs, summarizes new posts using OpenAI, and sends digests to Slack",
+  "main": "src/server/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server/server.js",
+    "dev": "nodemon src/server/server.js",
+    "format": "dprint fmt",
+    "format:check": "dprint check",
+    "test": "NODE_OPTIONS=--experimental-vm-modules uvu src/server/__tests__",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules watchlist src/server -- uvu src/server/__tests__",
+    "test:coverage": "c8 --reporter=lcov --reporter=text npm test",
+    "pre-commit": "npm run format && npm test",
+    "prepare": "husky"
+  },
+  "keywords": [
+    "newsletter",
+    "blog",
+    "digest",
+    "openai",
+    "slack",
+    "rss",
+    "fastify"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@fastify/static": "^6.12.0",
+    "axios": "^1.6.5",
+    "better-sqlite3": "^9.3.0",
+    "cheerio": "^1.0.0-rc.12",
+    "fastify": "^4.25.2",
+    "node-cron": "^3.0.3",
+    "openai": "^4.24.1",
+    "pino-pretty": "^10.3.1",
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "c8": "^9.1.0",
+    "dprint": "^0.45.0",
+    "husky": "^9.0.10",
+    "nodemon": "^3.0.3",
+    "sinon": "^17.0.1",
+    "uvu": "^0.5.6",
+    "watchlist": "^0.3.1"
+  }
+}

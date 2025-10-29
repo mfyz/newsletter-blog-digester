@@ -1,0 +1,21 @@
+services:
+  app:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npx nodemon src/server/server.js"
+    ports:
+      - "5566:5566"
+    volumes:
+      - ./src:/app/src
+      - ./data.db:/app/data.db
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=info
+      - PORT=5566
+      - HOST=0.0.0.0
+
+volumes:
+  node_modules:

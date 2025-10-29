@@ -1,9 +1,11 @@
 # Newsletter Blog Digester - Implementation Plan
 
 ## Project Overview
+
 A single-file Fastify application that periodically checks websites/blogs, summarizes new posts using OpenAI, and sends digests to Slack. Runs in Docker with live reloading and a web UI for management.
 
 ## Technology Stack
+
 - **Runtime**: Node.js with nodemon for live reloading
 - **Web Framework**: Fastify
 - **Database**: SQLite (better-sqlite3)
@@ -13,6 +15,7 @@ A single-file Fastify application that periodically checks websites/blogs, summa
 - **Container**: Docker Compose (bind mounts for live development)
 
 ## Project Structure
+
 ```
 /src
   /server
@@ -50,6 +53,7 @@ A single-file Fastify application that periodically checks websites/blogs, summa
 ```
 
 **Why this structure:**
+
 - **Backend split**: Server logic separated for maintainability
 - **API handlers by domain**: Each data model has its own API file (sites, posts, config, logs, cron)
 - **Frontend pages**: Each page is a full view (Sites, Posts, Config, etc.)
@@ -61,6 +65,7 @@ A single-file Fastify application that periodically checks websites/blogs, summa
 ## Database Schema
 
 ### Table: sites
+
 ```sql
 CREATE TABLE sites (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,12 +79,15 @@ CREATE TABLE sites (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
 **Site types:**
+
 - `rss`: Standard RSS/Atom feed (parsed with rss-parser)
 - `html_rules`: Web page parsed with cheerio using CSS selector rules
 - `html_llm`: Web page parsed using LLM (for complex/unpredictable HTML)
 
 **LLM Extraction for html_llm:**
+
 - Always uses `prompt_html_extract_base` from config as the foundation
 - `extraction_instructions` (if provided) is appended as additional context
 - This ensures consistent output format while allowing site-specific customization
@@ -107,6 +115,7 @@ Stored as JSON array in `extraction_rules` column. Each rule defines how to extr
 ```
 
 **How rule-based extraction works:**
+
 - Each rule is applied independently to the HTML using cheerio
 - All extracted posts from all rules are combined
 - Fast, deterministic, and free
@@ -116,6 +125,7 @@ Stored as JSON array in `extraction_rules` column. Each rule defines how to extr
 Stored as TEXT in `extraction_instructions` column. Optional additional instructions for site-specific extraction needs.
 
 **Base LLM extraction prompt (prompt_html_extract_base config):**
+
 ```
 You are an HTML parser. Extract all posts/articles/links from the provided HTML.
 Return ONLY a JSON array with this exact structure, no additional text:
@@ -136,12 +146,14 @@ Rules:
 ```
 
 **Site-specific extraction_instructions (optional examples):**
+
 - "Focus only on posts in the 'Featured Articles' section"
 - "Ignore sponsored content and advertisements"
 - "Extract both the article title and subtitle, combine them"
 - "The newsletter has multiple sections: News, Tools, and Resources - extract all"
 
 **How LLM-based extraction works:**
+
 1. Always start with base prompt from `prompt_html_extract_base` (ensures consistent JSON format)
 2. If site has `extraction_instructions`, append it as additional context
 3. Send combined prompt + HTML to OpenAI
@@ -151,17 +163,18 @@ Rules:
 
 **Comparison: When to use each extraction method**
 
-| Feature | RSS | HTML Rules | HTML LLM |
-|---------|-----|------------|----------|
-| **Speed** | Fast | Fast | Slow (API calls) |
-| **Cost** | Free | Free | ~$0.01-0.05 per extraction |
-| **Reliability** | High | High | Medium (depends on prompt) |
-| **Setup Complexity** | Easy (just URL) | Medium (need selectors) | Easy (just prompt) |
-| **HTML Changes** | N/A | Breaks if structure changes | Adapts to changes |
-| **Best For** | Standard blogs | Consistent HTML structure | Complex/changing layouts |
+| Feature              | RSS             | HTML Rules                              | HTML LLM                           |
+| -------------------- | --------------- | --------------------------------------- | ---------------------------------- |
+| **Speed**            | Fast            | Fast                                    | Slow (API calls)                   |
+| **Cost**             | Free            | Free                                    | ~$0.01-0.05 per extraction         |
+| **Reliability**      | High            | High                                    | Medium (depends on prompt)         |
+| **Setup Complexity** | Easy (just URL) | Medium (need selectors)                 | Easy (just prompt)                 |
+| **HTML Changes**     | N/A             | Breaks if structure changes             | Adapts to changes                  |
+| **Best For**         | Standard blogs  | Consistent HTML structure               | Complex/changing layouts           |
 | **Example Use Case** | WordPress blogs | Newsletter archives with clear patterns | Weekly emails with varying formats |
 
 ### Table: posts
+
 ```sql
 CREATE TABLE posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -179,12 +192,14 @@ CREATE TABLE posts (
 ```
 
 **Duplicate Prevention:**
+
 - Uses composite unique constraint on `(url, title, date)`
 - Same URL with different title = different post
 - Same title on different dates = different post
 - Handles cases where newsletters report same news with different titles
 
 **Slack Notification Tracking:**
+
 - `notified` column tracks whether post has been sent to Slack
 - Set to `1` after successful Slack notification
 - Prevents duplicate notifications for the same post
@@ -192,19 +207,23 @@ CREATE TABLE posts (
 
 **Note on Future Consolidation:**
 In a future iteration, add an LLM-based consolidation feature to detect semantically similar posts across different newsletters (e.g., two newsletters covering the same news event with different titles). This would:
+
 - Group similar posts using embeddings or LLM comparison
 - Create a `post_groups` table to link related posts
 - Allow viewing consolidated news across sources
 - Not included in initial implementation
 
 ### Table: config
+
 ```sql
 CREATE TABLE config (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
 ```
+
 **Default config keys:**
+
 - `schedule` - cron expression (e.g., "0 9 * * *" for 9 AM daily)
 - `openai_api_key` - API key for OpenAI
 - `slack_webhook_url` - Webhook URL for Slack notifications
@@ -212,6 +231,7 @@ CREATE TABLE config (
 - `prompt_html_extract_base` - Base LLM prompt for HTML extraction (always used, site instructions appended)
 
 ### Table: logs
+
 ```sql
 CREATE TABLE logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,6 +245,7 @@ CREATE TABLE logs (
 ## Architecture
 
 ### Backend File Organization
+
 ```
 server.js           - Main server + route registration
 db.js              - Database initialization & query functions
@@ -240,7 +261,9 @@ cron.js            - Cron job manager with dynamic scheduling
 ```
 
 ### Dynamic Cron Implementation
+
 node-cron supports dynamic scheduling through:
+
 1. Store cron expression in config table
 2. On app start, read schedule from DB and create cron job
 3. When schedule is updated via API:
@@ -250,9 +273,11 @@ node-cron supports dynamic scheduling through:
 4. Keep reference to cron task globally for updates
 
 ### Manual Check Trigger
+
 The UI includes a "Check Now" button in the header that allows manual triggering:
 
 **Frontend:**
+
 ```javascript
 // In App.js
 const runCheckNow = async () => {
@@ -270,6 +295,7 @@ h(Button, {
 ```
 
 **Backend API endpoint:**
+
 ```javascript
 // In server.js
 fastify.post('/api/cron/run', async (req, reply) => {
@@ -287,6 +313,7 @@ fastify.post('/api/cron/run', async (req, reply) => {
 This allows immediate testing without waiting for the scheduled time.
 
 ### Web UI Design (Single Page App with Client-Side Routing)
+
 ```
 ┌──────────────────────────────────────────────────┐
 │  Newsletter Blog Digester    [⚡ Check Now]     │
@@ -332,6 +359,7 @@ This allows immediate testing without waiting for the scheduled time.
 ```
 
 **Posts View Details:**
+
 - **Reverse chronological order** (newest first)
 - **Inline expansion**: Click row to expand/collapse
 - **Shows summary** when expanded (or content if no summary)
@@ -389,6 +417,7 @@ When adding/editing an html_rules site, provide an interactive selector builder:
 ```
 
 **Selector Builder Features:**
+
 1. **Fetch HTML**: GET the URL and display formatted HTML (collapsible for space)
 2. **Multiple Rules**: Add/edit/delete multiple extraction rules
 3. **Per-Rule Testing**: Test each rule individually to see what it extracts
@@ -398,6 +427,7 @@ When adding/editing an html_rules site, provide an interactive selector builder:
 7. **Error Feedback**: Show if selectors return 0 results or invalid data per rule
 
 **API Endpoints for Selector Builder:**
+
 ```javascript
 // POST /api/sites/test-extraction
 // Body: { url, extraction_rules: [{name, container, title, url, content}, ...] }
@@ -459,6 +489,7 @@ When adding/editing an html_llm site, provide an instructions testing interface:
 ```
 
 **LLM Instructions Editor Features:**
+
 1. **Base Prompt Display**: Show the global base prompt (read-only, collapsible)
 2. **Additional Instructions**: Optional site-specific instructions appended to base
 3. **Test Before Save**: Test combined prompt + instructions against live HTML
@@ -468,6 +499,7 @@ When adding/editing an html_llm site, provide an instructions testing interface:
 7. **Clear Instructions**: Button to remove site-specific instructions
 
 **API Endpoints for LLM Extraction Testing:**
+
 ```javascript
 // POST /api/sites/test-llm-extraction
 // Body: { url, extraction_instructions }
@@ -483,11 +515,13 @@ When adding/editing an html_llm site, provide an instructions testing interface:
 ## Frontend: Preact + HTM with ES Modules (No Build System!)
 
 **Key Concept:** Modern browsers support ES modules natively. We use:
+
 - **Preact**: Tiny React alternative (3KB)
 - **HTM**: JSX-like syntax using tagged template literals (1KB)
 - **ES Modules**: Import directly from CDN, no build step!
 
 ### index.html (Main Entry Point)
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
@@ -515,6 +549,7 @@ When adding/editing an html_llm site, provide an instructions testing interface:
 ```
 
 ### /public/pages/App.js (Main Router)
+
 ```javascript
 import { h } from 'https://esm.sh/preact@10.19.3';
 import { useState } from 'https://esm.sh/preact@10.19.3/hooks';
@@ -588,6 +623,7 @@ export default function App() {
 ```
 
 ### /public/pages/Posts.js (Example Page)
+
 ```javascript
 import { h } from 'https://esm.sh/preact@10.19.3';
 import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
@@ -714,6 +750,7 @@ export default function Posts() {
 ```
 
 ### /public/components/PostCard.js (Example Reusable Component)
+
 ```javascript
 import { h } from 'https://esm.sh/preact@10.19.3';
 import { useState } from 'https://esm.sh/preact@10.19.3/hooks';
@@ -793,6 +830,7 @@ export default function PostCard({ post, timeAgo }) {
 ```
 
 ### /public/components/Button.js (Example Micro Component)
+
 ```javascript
 import { h } from 'https://esm.sh/preact@10.19.3';
 import htm from 'https://esm.sh/htm@3.1.1';
@@ -834,6 +872,7 @@ export default function Button({
 ```
 
 **HTM Syntax Quick Reference:**
+
 ```javascript
 // Basic template
 html`<div class="foo">Hello</div>`
@@ -861,6 +900,7 @@ html`<img src=${url} alt=${alt} />`
 ```
 
 **Why This Works:**
+
 - ✅ **No build system**: ES modules work natively in modern browsers
 - ✅ **JSX-like syntax**: HTM provides familiar React-like template syntax
 - ✅ **Tiny bundle**: Preact (3KB) + HTM (1KB) = 4KB total
@@ -871,6 +911,7 @@ html`<img src=${url} alt=${alt} />`
 - ✅ **Browser support**: Works in Chrome, Firefox, Safari, Edge (no IE11)
 
 **Fastify Static File Serving:**
+
 ```javascript
 // In server.js
 fastify.register(require('@fastify/static'), {
@@ -882,6 +923,7 @@ fastify.register(require('@fastify/static'), {
 ## Backend Structure
 
 ### server.js (Main Server + Route Registration)
+
 ```javascript
 const fastify = require('fastify')();
 const path = require('path');
@@ -934,6 +976,7 @@ module.exports = fastify;
 ```
 
 ### /server/api/sites.js (Sites API Handlers)
+
 ```javascript
 const db = require('../db');
 const { logger } = require('../utils');
@@ -1078,6 +1121,7 @@ module.exports = {
 ```
 
 ### /server/api/posts.js (Posts API Handlers)
+
 ```javascript
 const db = require('../db');
 const { logger } = require('../utils');
@@ -1121,6 +1165,7 @@ module.exports = {
 ```
 
 ### /server/api/config.js (Config API Handlers)
+
 ```javascript
 const db = require('../db');
 const { logger } = require('../utils');
@@ -1167,6 +1212,7 @@ module.exports = {
 ```
 
 ### /server/api/logs.js (Logs API Handlers)
+
 ```javascript
 const db = require('../db');
 const { logger } = require('../utils');
@@ -1194,6 +1240,7 @@ module.exports = {
 ```
 
 ### /server/api/cron.js (Cron API Handlers)
+
 ```javascript
 const { logger } = require('../utils');
 const cronManager = require('../cron');
@@ -1219,6 +1266,7 @@ module.exports = {
 ```
 
 ### cron.js (Cron Job Logic)
+
 ```javascript
 const cron = require('node-cron');
 const db = require('./db');
@@ -1251,15 +1299,19 @@ module.exports = { runCheck, updateCronSchedule };
 ```
 
 ### extractors.js (RSS/HTML/LLM Logic)
+
 Contains `fetchSiteContent()`, `fetchRSSFeed()`, `fetchHTMLWithRules()`, `fetchHTMLWithLLM()`, `summarizePost()`.
 
 ### db.js (Database Queries)
+
 All database operations organized by entity (sites, posts, config, logs).
 
 ### utils.js (Common Utilities)
+
 Logger, date helpers, etc.
 
 **Is this too big?** No! This is a perfect size for maintainability:
+
 - ~200-300 lines per file
 - Clear separation of concerns
 - Easy to navigate and modify
@@ -1267,6 +1319,7 @@ Logger, date helpers, etc.
 ## Docker Setup (Compose without Dockerfile)
 
 ### docker-compose.yml
+
 ```yaml
 services:
   app:
@@ -1288,6 +1341,7 @@ volumes:
 ```
 
 **Key Points:**
+
 - Uses official Node.js Alpine image
 - Bind mounts entire `src/` folder for live editing (both server and public files)
 - Bind mounts data.db for persistence
@@ -1299,41 +1353,48 @@ volumes:
 ## Implementation Workflow
 
 ### Phase 1: Core Setup
+
 1. Create package.json with dependencies
 2. Create index.js with basic Fastify server
 3. Setup SQLite database initialization
 4. Create docker-compose.yml
 
 ### Phase 2: Database & Logger
+
 1. Implement database schema creation
 2. Build logger utility
 3. Test basic CRUD operations
 
 ### Phase 3: API Endpoints
+
 1. Sites CRUD endpoints
 2. Config get/set endpoints
 3. Posts read endpoints
 4. Logs read endpoint
 
 ### Phase 4: Web UI
+
 1. Create single-page HTML interface
 2. Implement tabs with Tailwind CSS
 3. Connect to API endpoints
 4. Add form validation
 
 ### Phase 5: Core Features
+
 1. RSS/feed parser integration
 2. OpenAI summarization
 3. Slack webhook integration
 4. Cron job with dynamic scheduling
 
 ### Phase 6: Integration & Testing
+
 1. Test full flow: add site → cron runs → fetch posts → summarize → send to Slack
 2. Test dynamic schedule updates
 3. Test nodemon hot reload
 4. Error handling and logging
 
 ## Dependencies (package.json)
+
 ```json
 {
   "dependencies": {
@@ -1351,11 +1412,13 @@ volumes:
   }
 }
 ```
+
 **Note:** cheerio is optional but recommended for better HTML parsing when dealing with `html` type sites.
 
 ## Key Implementation Notes
 
 ### Dynamic Cron Scheduling
+
 ```javascript
 let cronTask = null;
 
@@ -1374,18 +1437,21 @@ function updateCronSchedule(schedule) {
 The app supports two types of content sources:
 
 **1. RSS/Atom Feeds (`type: 'rss'`)**
+
 - Use `rss-parser` to fetch and parse feeds
 - Extract: title, link, pubDate, content
 - Check if URL exists in posts table (avoid duplicates)
 - Store only new posts
 
 **2. HTML Pages (`type: 'html'`)**
+
 - Fetch the HTML page using axios
 - Parse with cheerio using CSS selectors defined in the site record
 - Extract title, URL, and content from each post container
 - Much faster and cheaper than LLM extraction
 
 **Implementation:**
+
 ```javascript
 const cheerio = require('cheerio');
 
@@ -1546,6 +1612,7 @@ async function fetchHTMLWithLLM(site) {
 **Example 1: Newsletter with multiple sections**
 
 HTML structure:
+
 ```html
 <div class="newsletter">
   <!-- Section 1: Featured articles -->
@@ -1577,6 +1644,7 @@ HTML structure:
 ```
 
 Extraction rules JSON:
+
 ```json
 [
   {
@@ -1606,6 +1674,7 @@ Extraction rules JSON:
 This would extract posts from all three sections despite their completely different HTML structures!
 
 ### OpenAI Summarization
+
 ```javascript
 async function summarizePost(content, prompt) {
   const response = await openai.chat.completions.create({
@@ -1620,6 +1689,7 @@ async function summarizePost(content, prompt) {
 ```
 
 ### Slack Integration
+
 - POST to webhook URL with formatted digest
 - Group posts by site
 - Include summaries and links
@@ -1629,6 +1699,7 @@ async function summarizePost(content, prompt) {
 To prevent database bloat from large content fields, implement automatic cleanup:
 
 **Daily Cleanup Job (runs at midnight):**
+
 ```javascript
 function cleanupDatabase() {
   try {
@@ -1665,6 +1736,7 @@ cron.schedule('0 0 * * *', cleanupDatabase);
 ```
 
 **Rationale:**
+
 - **Week-old content clearing**: After 1 week, the full content is no longer needed since we have the summary. This prevents the `content` column (which can be very large for blog posts) from bloating the database.
 - **Year-old post deletion**: Posts older than 1 year are completely removed. The summary and historical data is likely no longer relevant.
 - **Benefits**:
@@ -1675,12 +1747,14 @@ cron.schedule('0 0 * * *', cleanupDatabase);
 
 **Optional Config Enhancement:**
 Consider adding these to the config table for user control:
+
 - `cleanup_content_days` (default: 7)
 - `cleanup_delete_days` (default: 365)
 
 This allows users to customize retention periods via the UI.
 
 ## Development Workflow
+
 1. Edit index.js locally
 2. nodemon detects changes and restarts
 3. data.db persists between restarts
@@ -1689,17 +1763,20 @@ This allows users to customize retention periods via the UI.
 ## Summary of Key Features
 
 ### Architecture Decisions
+
 ✅ **Split Backend Structure**: `server.js`, `cron.js`, `db.js`, `extractors.js`, `utils.js`
 ✅ **Organized Frontend**: `/pages` for full views, `/components` for reusable elements
 ✅ **No Build System**: ES modules + CDN imports (Preact via esm.sh)
 ✅ **Bind-Mounted src/**: Live reload for both backend and frontend
 
 ### Extraction Methods (3 Types)
+
 1. **RSS**: Fast, free, standard feeds
 2. **HTML Rules**: CSS selector-based (cheerio), fast and free
 3. **HTML LLM**: OpenAI-based, handles complex/changing layouts
 
 ### Key Features
+
 - **Duplicate Prevention**: Composite unique constraint on `(url, title, date)`
 - **Database Cleanup**: Auto-clear content after 1 week, delete posts after 1 year
 - **Dynamic Scheduling**: Update cron schedule via UI, takes effect immediately
@@ -1709,6 +1786,7 @@ This allows users to customize retention periods via the UI.
 - **Custom LLM Prompts**: Per-site extraction prompts with testing UI
 
 ### Frontend Highlights
+
 - Preact + HTM (JSX-like syntax, no build step)
 - Tailwind CSS via CDN
 - Simple tab-based routing (no router library needed)
@@ -1717,6 +1795,7 @@ This allows users to customize retention periods via the UI.
 - Total bundle size: ~4KB (Preact 3KB + HTM 1KB)
 
 ### API Endpoints
+
 - `/api/sites` - CRUD for sites
 - `/api/posts` - Get posts with filters
 - `/api/config` - Get/update config (triggers cron reschedule)
@@ -1729,11 +1808,13 @@ This allows users to customize retention periods via the UI.
 ### Backend Testing: **uvu + Sinon**
 
 **Framework Choice:**
+
 - **uvu**: Ultra-lightweight (5KB), blazing fast test runner
 - **Sinon**: Industry-standard mocking library (~500KB)
 - **c8**: Code coverage reporting
 
 **Why this combination:**
+
 - ✅ Minimal dependencies (~1MB total)
 - ✅ Fastest test execution
 - ✅ Powerful mocking for external APIs (OpenAI, Slack)
@@ -1741,11 +1822,13 @@ This allows users to customize retention periods via the UI.
 - ✅ Simple API, easy to learn
 
 **Install:**
+
 ```bash
 npm install -D uvu sinon c8 watchlist
 ```
 
 **Test Structure:**
+
 ```
 src/
   server/
@@ -1759,6 +1842,7 @@ src/
 ```
 
 **Example Test** (`src/server/__tests__/sites.test.js`):
+
 ```javascript
 import { suite } from 'uvu';
 import * as assert from 'uvu/assert';
@@ -1812,6 +1896,7 @@ Sites.run();
 ```
 
 **Mocking External APIs** (`src/server/__tests__/extractors.test.js`):
+
 ```javascript
 import { suite } from 'uvu';
 import * as assert from 'uvu/assert';
@@ -1899,6 +1984,7 @@ Extractors.run();
 ```
 
 **package.json scripts:**
+
 ```json
 {
   "scripts": {
@@ -1910,6 +1996,7 @@ Extractors.run();
 ```
 
 **What to Test:**
+
 - ✅ **API Endpoints**: All CRUD operations (sites, posts, config, logs)
 - ✅ **Database Operations**: Queries, inserts, updates, deletes
 - ✅ **RSS/HTML Extraction**: Parser logic, CSS selectors
@@ -1924,6 +2011,7 @@ Extractors.run();
 **Decision: No component testing**
 
 **Why:**
+
 - Frontend uses CDN imports (Preact, HTM) - difficult to mock in tests
 - No build system - component testing requires complex setup
 - Components are simple and presentational (Button, Input, PostCard)
@@ -1932,6 +2020,7 @@ Extractors.run();
 - Manual testing during development is sufficient
 
 **Alternative for Frontend Confidence:**
+
 - **Manual testing**: Test in browser during development
 - **Browser console**: Check for errors on page load
 - **Smoke test**: Load app, click through tabs, verify no crashes
@@ -1943,6 +2032,7 @@ Use **@web/test-runner** - runs tests in real browsers without build step, works
 ### Testing Workflow
 
 **During Development:**
+
 ```bash
 # Run tests in watch mode
 npm run test:watch
@@ -1955,6 +2045,7 @@ npm run test:coverage
 ```
 
 **Coverage Goals:**
+
 - Backend/API: >80% coverage
 - Extractors: >90% coverage (critical logic)
 - Database: >70% coverage
@@ -1975,12 +2066,12 @@ testDb.close();
 
 ### Testing Dependencies Comparison
 
-| Framework | Size | Speed | Features |
-|-----------|------|-------|----------|
-| **uvu** (chosen) | 5KB | ⚡⚡⚡ Fastest | Minimal, fast |
-| **Vitest** | 10MB | ⚡⚡ Fast | Full-featured, watch, coverage |
-| **Node.js test** | 0KB (native) | ⚡⚡⚡ Very fast | Basic, native |
-| **Jest** | 30MB | ⚡ Slow | Full-featured, heavy |
+| Framework        | Size         | Speed            | Features                       |
+| ---------------- | ------------ | ---------------- | ------------------------------ |
+| **uvu** (chosen) | 5KB          | ⚡⚡⚡ Fastest   | Minimal, fast                  |
+| **Vitest**       | 10MB         | ⚡⚡ Fast        | Full-featured, watch, coverage |
+| **Node.js test** | 0KB (native) | ⚡⚡⚡ Very fast | Basic, native                  |
+| **Jest**         | 30MB         | ⚡ Slow          | Full-featured, heavy           |
 
 **Sinon (mocking):** ~500KB, works with all frameworks
 
@@ -1993,6 +2084,7 @@ testDb.close();
 **dprint** is a Rust-based code formatter that's 10-100x faster than Prettier with zero npm dependencies.
 
 **Advantages:**
+
 - ✅ **Blazing fast** - Written in Rust, compiled to native binary
 - ✅ **Zero npm dependencies** - Downloads standalone binary
 - ✅ **Lightweight** - ~15MB binary (no node_modules bloat)
@@ -2002,11 +2094,11 @@ testDb.close();
 
 **Comparison:**
 
-| Tool | Size | Speed | Dependencies |
-|------|------|-------|--------------|
-| **dprint** | ~15MB | ⚡⚡⚡ Fastest (10-100x) | 0 |
-| Prettier | ~20MB | ⚡ Slow | Many |
-| Biome | ~25MB | ⚡⚡⚡ Very fast | 0 |
+| Tool       | Size  | Speed                    | Dependencies |
+| ---------- | ----- | ------------------------ | ------------ |
+| **dprint** | ~15MB | ⚡⚡⚡ Fastest (10-100x) | 0            |
+| Prettier   | ~20MB | ⚡ Slow                  | Many         |
+| Biome      | ~25MB | ⚡⚡⚡ Very fast         | 0            |
 
 ### Installation
 
@@ -2017,6 +2109,7 @@ npm install -D dprint
 ### Configuration
 
 **dprint.json** (root directory):
+
 ```json
 {
   "incremental": true,
@@ -2055,6 +2148,7 @@ npm install -D dprint
 ### NPM Scripts
 
 Add to **package.json**:
+
 ```json
 {
   "scripts": {
@@ -2077,21 +2171,25 @@ Add to **package.json**:
 ### Usage
 
 **Format all files:**
+
 ```bash
 npm run format
 ```
 
 **Check formatting:**
+
 ```bash
 npm run format:check
 ```
 
 **Format specific file:**
+
 ```bash
 npx dprint fmt src/server/server.js
 ```
 
 **Format specific directory:**
+
 ```bash
 npx dprint fmt src/server/
 ```
@@ -2100,6 +2198,7 @@ npx dprint fmt src/server/
 
 **VS Code:**
 Install the "dprint" extension, then add to `.vscode/settings.json`:
+
 ```json
 {
   "editor.defaultFormatter": "dprint.dprint",
@@ -2114,6 +2213,7 @@ Install the "dprint" extension, then add to `.vscode/settings.json`:
 ```
 
 **Other editors:**
+
 - WebStorm/IntelliJ: Built-in support via "External Tools"
 - Vim/Neovim: Use ALE or null-ls
 - Sublime Text: Use SublimeLinter
@@ -2128,6 +2228,7 @@ npx husky init
 ```
 
 **.husky/pre-commit:**
+
 ```bash
 #!/usr/bin/env sh
 npm run format
@@ -2136,6 +2237,7 @@ npm run format
 ### Formatting Rules
 
 **dprint** will enforce:
+
 - Single quotes for strings
 - Semicolons always
 - 100 character line width
@@ -2146,6 +2248,7 @@ npm run format
 **Example before/after:**
 
 **Before:**
+
 ```javascript
 const foo={bar:1,baz:2}
 function test(a,b,c){
@@ -2154,6 +2257,7 @@ return a+b+c
 ```
 
 **After:**
+
 ```javascript
 const foo = { bar: 1, baz: 2 };
 function test(a, b, c) {
@@ -2164,11 +2268,13 @@ function test(a, b, c) {
 ### Total Dev Dependencies
 
 With testing + formatting:
+
 - **uvu + sinon + c8**: ~1MB
 - **dprint**: ~15MB binary (0 deps)
 - **Total**: ~16MB
 
 **vs Prettier alternative:**
+
 - **uvu + sinon + c8**: ~1MB
 - **prettier**: ~20MB
 - **Total**: ~21MB
@@ -2190,17 +2296,20 @@ npm install -D husky
 ### Setup
 
 **Initialize Husky:**
+
 ```bash
 npx husky init
 ```
 
 This creates:
+
 - `.husky/` directory
 - `.husky/pre-commit` hook file
 
 ### NPM Scripts
 
 Add to **package.json**:
+
 ```json
 {
   "scripts": {
@@ -2225,6 +2334,7 @@ Add to **package.json**:
 ### Pre-commit Hook Configuration
 
 **.husky/pre-commit:**
+
 ```bash
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
@@ -2247,6 +2357,7 @@ npm run pre-commit
 6. **If either fails:** Commit is blocked ❌
 
 **Example output:**
+
 ```bash
 $ git commit -m "add new feature"
 
@@ -2261,6 +2372,7 @@ Formatted 3 files
 ```
 
 **If formatting fails:**
+
 ```bash
 $ git commit -m "add broken code"
 
@@ -2277,6 +2389,7 @@ Commit blocked
 ### Configuration Approach
 
 **Format All + Test All**
+
 - Formats entire codebase
 - Runs full test suite
 - **Pros:** Simple setup, comprehensive, ensures full project quality
@@ -2284,6 +2397,7 @@ Commit blocked
 - **Recommended for this project** (small codebase, fast tests with dprint + uvu)
 
 The `pre-commit` script is already configured in package.json:
+
 ```json
 {
   "scripts": {
@@ -2293,6 +2407,7 @@ The `pre-commit` script is already configured in package.json:
 ```
 
 **Why this approach:**
+
 - dprint is extremely fast (~50-100ms for entire codebase)
 - uvu tests run in ~200-500ms
 - Total pre-commit time: <1 second
@@ -2311,6 +2426,7 @@ git commit -m "WIP: incomplete work" --no-verify
 ### Total Dev Dependencies
 
 With testing + formatting + pre-commit hooks:
+
 - **uvu + sinon + c8**: ~1MB
 - **dprint**: ~15MB binary (0 deps)
 - **husky**: ~1MB
@@ -2319,6 +2435,7 @@ With testing + formatting + pre-commit hooks:
 ### Performance
 
 **Pre-commit hook timing (estimated):**
+
 - **Format all files:** ~50-100ms (dprint is fast)
 - **Run all tests:** ~200-500ms (uvu is fast)
 - **Total:** ~250-600ms per commit
@@ -2326,6 +2443,7 @@ With testing + formatting + pre-commit hooks:
 **With this project's small codebase, the pre-commit hook adds less than 1 second to each commit.**
 
 ## Future Enhancements
+
 - [ ] **Post Consolidation**: LLM-based semantic grouping of similar posts across newsletters (embeddings + clustering)
 - [ ] Support multiple feed formats (Atom, JSON Feed)
 - [ ] Email digest option
