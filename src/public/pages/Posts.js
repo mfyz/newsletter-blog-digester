@@ -1,7 +1,6 @@
 import { h } from 'https://esm.sh/preact@10.19.3';
 import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
-import PostCard from '../components/PostCard.js';
 import Select from '../components/Select.js';
 import Input from '../components/Input.js';
 
@@ -12,9 +11,24 @@ export default function Posts() {
   const [sites, setSites] = useState([]);
   const [filter, setFilter] = useState({ site: 'all', search: '' });
   const [loading, setLoading] = useState(true);
+  const [expandedPost, setExpandedPost] = useState(null);
 
   const timeAgo = (date) => {
-    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+    if (!date) return 'Unknown';
+
+    // Ensure we parse the date correctly - add 'Z' if no timezone specified
+    const dateStr = date.toString();
+    const parsedDate = dateStr.includes('T') || dateStr.includes('Z')
+      ? new Date(date)
+      : new Date(dateStr + ' UTC');
+
+    const seconds = Math.floor((new Date() - parsedDate) / 1000);
+
+    // Handle future dates or invalid dates
+    if (isNaN(seconds) || seconds < 0) {
+      return new Date(date).toLocaleDateString();
+    }
+
     if (seconds < 60) return `${seconds} seconds ago`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
@@ -105,7 +119,7 @@ export default function Posts() {
         `}
       </div>
 
-      <!-- Posts list -->
+      <!-- Posts Table -->
       ${filteredPosts.length === 0 ? html`
         <div class="text-center py-12 text-gray-500">
           ${posts.length === 0
@@ -113,14 +127,110 @@ export default function Posts() {
             : 'No posts found. Try adjusting your filters.'}
         </div>
       ` : html`
-        <div class="space-y-3">
-          ${filteredPosts.map(post => html`
-            <${PostCard}
-              key=${post.id}
-              post=${post}
-              timeAgo=${timeAgo}
-            />
-          `)}
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-7/12">
+                  Title
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-3/12">
+                  Site
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/12">
+                  Published
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              ${filteredPosts.map(post => {
+                const site = sites.find(s => s.id === post.site_id);
+                const isExpanded = expandedPost === post.id;
+                return html`
+                  <tr key=${post.id} class="hover:bg-gray-50 transition-colors cursor-pointer" onClick=${() => setExpandedPost(isExpanded ? null : post.id)}>
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-2">
+                        <span class="text-gray-400">${isExpanded ? '▼' : '▶'}</span>
+                        <div class="text-sm font-medium text-gray-900">
+                          ${post.title}
+                        </div>
+                        ${post.sent_to_slack && html`
+                          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                            ✓
+                          </span>
+                        `}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">${site?.title || 'Unknown'}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm text-gray-500">
+                        ${timeAgo(post.published_at || post.created_at)}
+                      </div>
+                    </td>
+                  </tr>
+                  ${isExpanded && html`
+                    <tr key="${post.id}-expanded" class="bg-gray-50">
+                      <td colspan="3" class="px-4 py-4">
+                        <div class="space-y-3">
+                          <!-- URL -->
+                          <div>
+                            <div class="text-xs font-medium text-gray-500 uppercase mb-1">URL</div>
+                            <a
+                              href=${post.url}
+                              target="_blank"
+                              class="text-sm text-blue-600 hover:text-blue-800 break-all"
+                            >
+                              ${post.url}
+                            </a>
+                          </div>
+
+                          <!-- Content -->
+                          ${post.content && html`
+                            <div>
+                              <div class="text-xs font-medium text-gray-500 uppercase mb-1">Content</div>
+                              <div
+                                class="text-sm text-gray-700 bg-white border border-gray-200 rounded p-4 max-h-96 overflow-y-auto"
+                                dangerouslySetInnerHTML=${{ __html: post.content }}
+                              />
+                            </div>
+                          `}
+
+                          <!-- Summary -->
+                          ${post.summary && html`
+                            <div>
+                              <div class="text-xs font-medium text-gray-500 uppercase mb-1">AI Summary</div>
+                              <div class="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded p-4 whitespace-pre-wrap">
+                                ${post.summary}
+                              </div>
+                            </div>
+                          `}
+
+                          <!-- Metadata -->
+                          <div class="flex gap-6 text-xs text-gray-500">
+                            <div>
+                              <span class="font-medium">Created:</span> ${new Date(post.created_at).toLocaleString()}
+                            </div>
+                            ${post.published_at && html`
+                              <div>
+                                <span class="font-medium">Published:</span> ${new Date(post.published_at).toLocaleString()}
+                              </div>
+                            `}
+                            ${post.sent_to_slack && html`
+                              <div>
+                                <span class="font-medium">Sent to Slack:</span> ${new Date(post.sent_to_slack).toLocaleString()}
+                              </div>
+                            `}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  `}
+                `;
+              })}
+            </tbody>
+          </table>
         </div>
       `}
     </div>
