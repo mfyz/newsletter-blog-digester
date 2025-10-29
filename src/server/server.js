@@ -12,6 +12,10 @@ const __dirname = path.dirname(__filename);
 initDb();
 logger.info('Database initialized successfully');
 
+// Initialize cron scheduler
+import { initCron } from './cron.js';
+initCron();
+
 const fastify = Fastify({
   logger: {
     level: process.env.LOG_LEVEL || 'info',
@@ -31,12 +35,40 @@ await fastify.register(fastifyStatic, {
   prefix: '/',
 });
 
+// Import API handlers
+import * as sitesAPI from './api/sites.js';
+import * as postsAPI from './api/posts.js';
+import * as configAPI from './api/config.js';
+import * as logsAPI from './api/logs.js';
+import * as cronAPI from './api/cron.js';
+
 // Health check endpoint
 fastify.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
-// API routes will be added here
+// Sites routes (7 endpoints)
+fastify.get('/api/sites', sitesAPI.getAll);
+fastify.post('/api/sites', sitesAPI.create);
+fastify.get('/api/sites/:id', sitesAPI.getOne);
+fastify.put('/api/sites/:id', sitesAPI.update);
+fastify.delete('/api/sites/:id', sitesAPI.remove);
+fastify.post('/api/sites/test-extraction', sitesAPI.testExtraction);
+fastify.post('/api/sites/test-llm-extraction', sitesAPI.testLLMExtraction);
+
+// Posts routes (2 endpoints)
+fastify.get('/api/posts', postsAPI.getAll);
+fastify.get('/api/posts/:id', postsAPI.getOne);
+
+// Config routes (2 endpoints)
+fastify.get('/api/config', configAPI.getAll);
+fastify.put('/api/config', configAPI.update);
+
+// Logs routes (1 endpoint)
+fastify.get('/api/logs', logsAPI.getAll);
+
+// Cron routes (1 endpoint)
+fastify.post('/api/cron/run', cronAPI.runNow);
 
 // Start server
 const start = async () => {
