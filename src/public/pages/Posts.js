@@ -2,6 +2,7 @@ import { h } from 'https://esm.sh/preact@10.19.3';
 import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
 import snarkdown from 'https://esm.sh/snarkdown@2.0.0';
+import insane from 'https://esm.sh/insane@2.6.2';
 import Select from '../components/Select.js';
 import Input from '../components/Input.js';
 import { toast } from '../utils/toast.js';
@@ -273,15 +274,40 @@ export default function Posts() {
                     <tr key="${post.id}-expanded" class="bg-gray-50">
                       <td class="px-4 py-4">
                         <div class="space-y-3">
+                          <!-- Metadata and Delete Button -->
+                          <div class="flex items-start justify-between gap-4">
+                            <div class="flex flex-wrap gap-2 text-xs">
+                              ${post.date && html`
+                                <span class="inline-flex items-center px-2 py-1 rounded bg-blue-100 text-blue-700">
+                                  Published: ${new Date(post.date).toLocaleString()}
+                                </span>
+                              `}
+                              <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-gray-700">
+                                Added: ${new Date(post.created_at).toLocaleString()}
+                              </span>
+                              <span class="inline-flex items-center px-2 py-1 rounded ${post.notified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                                Notified: ${post.notified ? 'Yes' : 'No'}
+                              </span>
+                            </div>
+                            <button
+                              onClick=${(e) => {
+                                e.stopPropagation();
+                                handleDeletePost(post.id, post.title);
+                              }}
+                              class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+
                           <!-- URL -->
-                          <div>
-                            <div class="text-xs font-medium text-gray-500 uppercase mb-1">URL</div>
+                          <div class="text-sm">
                             <a
                               href=${post.url}
                               target="_blank"
-                              class="text-sm text-blue-600 hover:text-blue-800 break-all"
+                              class="inline-flex items-center px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors break-all"
                             >
-                              ${post.url}
+                              ${post.url} →
                             </a>
                           </div>
 
@@ -290,7 +316,7 @@ export default function Posts() {
                             <div>
                               <div class="text-xs font-medium text-gray-500 uppercase mb-1">AI Summary</div>
                               <div
-                                class="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded p-4 summary-content"
+                                class="text-sm text-gray-700 bg-yellow-50 border border-yellow-200 rounded p-4 summary-content"
                                 dangerouslySetInnerHTML=${{ __html: snarkdown(post.summary) }}
                               />
                             </div>
@@ -301,41 +327,18 @@ export default function Posts() {
                             <div>
                               <div class="text-xs font-medium text-gray-500 uppercase mb-1">Content</div>
                               <div
-                                class="text-sm text-gray-700 bg-white border border-gray-200 rounded p-4 max-h-96 overflow-y-auto"
-                                dangerouslySetInnerHTML=${{ __html: post.content }}
+                                class="text-sm text-gray-700 bg-white border border-gray-200 rounded p-4 summary-content"
+                                dangerouslySetInnerHTML=${{ __html: insane(post.content, {
+                                  allowedTags: ['p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'img', 'div', 'span'],
+                                  allowedAttributes: {
+                                    a: ['href', 'title', 'target'],
+                                    img: ['src', 'alt', 'title', 'width', 'height']
+                                  },
+                                  allowedSchemes: ['http', 'https', 'mailto']
+                                }) }}
                               />
                             </div>
                           `}
-
-                          <!-- Metadata -->
-                          <div class="flex gap-6 text-xs text-gray-500">
-                            ${post.date && html`
-                              <div>
-                                <span class="font-medium">Published:</span> ${new Date(post.date).toLocaleString()}
-                              </div>
-                            `}
-                            <div>
-                              <span class="font-medium">Added to DB:</span> ${new Date(post.created_at).toLocaleString()}
-                            </div>
-                            ${post.notified && html`
-                              <div>
-                                <span class="font-medium">Notified:</span> Yes
-                              </div>
-                            `}
-                          </div>
-
-                          <!-- Delete Button -->
-                          <div class="mt-4 pt-4 border-t border-gray-200 flex justify-end">
-                            <button
-                              onClick=${(e) => {
-                                e.stopPropagation();
-                                handleDeletePost(post.id, post.title);
-                              }}
-                              class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-                            >
-                              🗑️ Delete Post
-                            </button>
-                          </div>
                         </div>
                       </td>
                     </tr>
