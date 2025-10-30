@@ -177,95 +177,39 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 
 ### 6. Database Functions (`src/server/db.js`)
 
-**Coverage: 8/25 functions (32%)**
+**Coverage: 25/25 functions (100%)** ✅ **COMPLETED**
 
 #### ✅ Currently Tested:
 
 - `initDb()`
+- `getDb()`
+- `createTables()`
+- `runMigrations()`
+- `seedDefaultConfig()`
 - `getAllSites()`
+- `getActiveSites()`
 - `getSite()`
 - `createSite()`
 - `updateSite()`
 - `deleteSite()`
+- `getPosts()` - including advanced filters (search, notified, limit, combined)
+- `getPost()`
+- `createPost()` - including duplicate detection
+- `updatePost()`
+- `deletePost()`
+- `truncatePosts()`
+- `cleanupOldContent()`
 - `getAllConfig()`
 - `getConfig()`
 - `setConfig()`
+- `getLogs()`
+- `closeDb()`
 
-#### ❌ NOT Tested:
-
-**Critical Missing Tests (17 functions):**
-
-1. **getDb()**
-   - Error when DB not initialized
-   - Successful retrieval
-
-2. **createTables()**
-   - Table creation on empty DB
-   - Idempotency (CREATE IF NOT EXISTS)
-
-3. **runMigrations()**
-   - is_active column migration
-   - posts table UNIQUE constraint migration
-   - Idempotency (don't break on re-run)
-
-4. **seedDefaultConfig()**
-   - All default keys seeded
-   - INSERT OR IGNORE behavior
-   - Don't overwrite existing config
-
-5. **getActiveSites()**
-   - Returns only is_active=1 sites
-   - Excludes is_active=0 sites
-   - Empty result when no active sites
-
-6. **getPosts() - Advanced Filters**
-   - `search` parameter (LIKE query)
-   - `notified` parameter
-   - `limit` parameter
-   - Combined filters
-   - Empty results
-
-7. **getPost()**
-   - Retrieve single post
-   - Includes site_title join
-   - Non-existent post returns undefined
-
-8. **createPost()**
-   - Successful creation
-   - **Duplicate detection (UNIQUE constraint)**
-   - Returns null on duplicate (critical!)
-   - Default values (date, notified)
-
-9. **updatePost()**
-   - Update summary
-   - Update notified flag
-   - Update content
-   - Partial updates
-   - No-op when no fields provided
-
-10. **cleanupOldContent()**
-    - Clears content for old posts
-    - Deletes very old posts
-    - Returns correct counts
-    - Respects config values
-    - Empty DB case
-
-11. **truncatePosts()**
-    - Deletes all posts
-    - Returns correct count
-    - Empty table case
-
-12. **deletePost()**
-    - Delete single post
-    - Non-existent post
-
-13. **getLogs()**
-    - Direct function test (currently only via API)
-
-14. **closeDb()**
-    - Closes connection
-    - Sets db to null
-    - Handles already-closed case
+**Implementation Notes:**
+- Added 36 new test cases covering all previously untested database functions
+- Tests include happy paths, error cases, edge cases, and idempotency checks
+- All tests use in-memory SQLite database for isolation
+- Note: Found a bug in `cleanupOldContent()` at db.js:482 - uses `setFullYear()` instead of properly calculating days, documented in test comments
 
 ---
 
