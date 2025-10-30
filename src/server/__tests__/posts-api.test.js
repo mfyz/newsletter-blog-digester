@@ -39,14 +39,24 @@ PostsAPITests('getAll should return all posts', async () => {
   // Create a site first
   const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
 
-  // Create some posts (sorted by date DESC, then created_at DESC)
-  db.createPost({ url: 'https://example.com/post1', title: 'Post 1', site_id: site.id });
-  db.createPost({ url: 'https://example.com/post2', title: 'Post 2', site_id: site.id });
+  // Create some posts with explicit dates to ensure predictable ordering
+  const post1 = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Post 1',
+    site_id: site.id,
+    date: '2024-01-01T00:00:00Z',
+  });
+  const post2 = db.createPost({
+    url: 'https://example.com/post2',
+    title: 'Post 2',
+    site_id: site.id,
+    date: '2024-01-02T00:00:00Z',
+  });
 
   const result = await postsAPI.getAll({ query: {} }, mockReply);
 
   assert.equal(result.length, 2);
-  // Posts are sorted by date DESC, created_at DESC - so Post 2 (created later) comes first
+  // Posts are sorted by date DESC - so Post 2 (newer date) comes first
   assert.equal(result[0].title, 'Post 2');
 });
 

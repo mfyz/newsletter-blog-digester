@@ -206,6 +206,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 - `closeDb()`
 
 **Implementation Notes:**
+
 - Added 36 new test cases covering all previously untested database functions
 - Tests include happy paths, error cases, edge cases, and idempotency checks
 - All tests use in-memory SQLite database for isolation
