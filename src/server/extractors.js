@@ -43,18 +43,60 @@ export async function fetchSiteContent(site) {
 }
 
 /**
+ * Parse RSS date to ISO string
+ */
+function parseRSSDate(item) {
+  // Try various date fields in order of preference
+  const dateString = item.pubDate || item.isoDate || item.date || item.published || item.updated;
+
+  if (!dateString) {
+    return new Date().toISOString();
+  }
+
+  try {
+    const parsedDate = new Date(dateString);
+    // Check if date is valid
+    if (isNaN(parsedDate.getTime())) {
+      logger.warn(`Invalid date format: ${dateString}`, { date: dateString });
+      return new Date().toISOString();
+    }
+    return parsedDate.toISOString();
+  } catch (error) {
+    logger.warn(`Failed to parse date: ${dateString}`, { error: error.message });
+    return new Date().toISOString();
+  }
+}
+
+/**
  * Fetch and parse RSS/Atom feed
  */
 export async function fetchRSSFeed(url) {
   try {
     const feed = await rssParser.parseURL(url);
 
-    return feed.items.map((item) => ({
+    // Parse all items with proper date handling
+    const allPosts = feed.items.map((item) => ({
       title: item.title || 'Untitled',
       url: item.link || item.guid || '',
       content: item.content || item.contentSnippet || item.description || '',
-      date: item.pubDate || item.isoDate || new Date().toISOString(),
+      date: parseRSSDate(item),
     }));
+
+    // Filter posts from last 7 days only
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const recentPosts = allPosts.filter((post) => {
+      const postDate = new Date(post.date);
+      return postDate >= sevenDaysAgo;
+    });
+
+    // Sort by date (newest first)
+    recentPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    logger.info(`RSS feed ${url}: ${allPosts.length} total posts, ${recentPosts.length} from last 7 days`);
+
+    return recentPosts;
   } catch (error) {
     logger.error(`Failed to parse RSS feed: ${url}`, { error: error.message });
     throw error;

@@ -8,17 +8,17 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 
 ## Current Coverage Overview
 
-| Module | Total Functions/Endpoints | Tested | Coverage | Status |
-|--------|---------------------------|--------|----------|--------|
-| Sites API | 10 endpoints | 2 | 20% | 🔴 Critical |
-| Posts API | 5 endpoints | 3 | 60% | 🟡 Moderate |
-| Config API | 3 endpoints | 2 | 67% | 🟡 Moderate |
-| Logs API | 1 endpoint | 1 | 100% | ✅ Complete |
-| Cron API | 1 endpoint | 0 | 0% | 🔴 Critical |
-| Database Functions | 25 functions | 8 | 32% | 🔴 Critical |
-| Extractors | 7 functions | 0 | 0% | 🔴 **CRITICAL** |
-| Cron Logic | 5 functions | 0 | 0% | 🔴 **CRITICAL** |
-| Utilities | 4 functions | 2 | 50% | 🟢 Good |
+| Module             | Total Functions/Endpoints | Tested | Coverage | Status          |
+| ------------------ | ------------------------- | ------ | -------- | --------------- |
+| Sites API          | 10 endpoints              | 2      | 20%      | 🔴 Critical     |
+| Posts API          | 5 endpoints               | 3      | 60%      | 🟡 Moderate     |
+| Config API         | 3 endpoints               | 2      | 67%      | 🟡 Moderate     |
+| Logs API           | 1 endpoint                | 1      | 100%     | ✅ Complete     |
+| Cron API           | 1 endpoint                | 0      | 0%       | 🔴 Critical     |
+| Database Functions | 25 functions              | 8      | 32%      | 🔴 Critical     |
+| Extractors         | 7 functions               | 0      | 0%       | 🔴 **CRITICAL** |
+| Cron Logic         | 5 functions               | 0      | 0%       | 🔴 **CRITICAL** |
+| Utilities          | 4 functions               | 2      | 50%      | 🟢 Good         |
 
 **Overall Estimated Coverage: 20-30%**
 
@@ -31,12 +31,14 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 **Coverage: 2/10 endpoints (20%)**
 
 #### ✅ Currently Tested:
+
 - `GET /api/sites` - getAll() - basic test only
 - `POST /api/sites` - create() - success + validation failure
 
 #### ❌ NOT Tested:
 
 **Missing Tests (8 endpoints):**
+
 1. `GET /api/sites/:id` - getOne()
    - Success case
    - 404 for non-existent site
@@ -93,12 +95,14 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 **Coverage: 3/5 endpoints (60%)**
 
 #### ✅ Currently Tested:
+
 - `GET /api/posts` - getAll() - basic + site_id filter
 - `GET /api/posts/:id` - getOne() - success + 404
 
 #### ❌ NOT Tested:
 
 **Missing Tests (2 endpoints):**
+
 1. `DELETE /api/posts/:id` - remove()
    - Successful deletion
    - Non-existent post
@@ -110,6 +114,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
    - Verify logging
 
 **Incomplete Coverage:**
+
 - `GET /api/posts` filters not fully tested:
   - `search` parameter
   - `limit` parameter
@@ -122,12 +127,14 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 **Coverage: 2/3 endpoints (67%)**
 
 #### ✅ Currently Tested:
+
 - `GET /api/config` - getAll()
 - `PUT /api/config` - update() - basic only
 
 #### ❌ NOT Tested:
 
 **Missing Tests (1 endpoint + logic):**
+
 1. `POST /api/config/test-ai` - testAI()
    - Successful connection
    - Invalid API key
@@ -148,6 +155,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 **Coverage: 1/1 endpoint (100%)**
 
 #### ✅ Fully Tested:
+
 - `GET /api/logs` - getAll() with filters
 
 ---
@@ -159,6 +167,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 #### ❌ NOT Tested:
 
 **Missing Tests (1 endpoint):**
+
 1. `POST /api/cron/run` - runNow()
    - Triggers background job
    - Returns immediate success response
@@ -171,6 +180,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 **Coverage: 8/25 functions (32%)**
 
 #### ✅ Currently Tested:
+
 - `initDb()`
 - `getAllSites()`
 - `getSite()`
@@ -380,6 +390,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 **Coverage: 2/4 functions (50%)**
 
 #### ✅ Currently Tested:
+
 - `toAbsoluteUrl()` - multiple cases
 - `timeAgo()` - multiple time ranges
 
@@ -403,6 +414,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 ## Edge Cases & Error Scenarios NOT Covered
 
 ### API Error Handling (0% tested):
+
 - [ ] Database connection failures during requests
 - [ ] Invalid request parameter types
 - [ ] Missing required fields
@@ -412,6 +424,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 - [ ] Large payload handling
 
 ### Database Edge Cases (0% tested):
+
 - [ ] Concurrent write conflicts
 - [ ] Foreign key constraint violations
 - [ ] Unique constraint violations (only partially tested)
@@ -421,6 +434,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 - [ ] Disk space issues
 
 ### Extractor Edge Cases (0% tested):
+
 - [ ] Malformed RSS feeds (invalid XML)
 - [ ] RSS feeds with missing required fields
 - [ ] Invalid HTML structure
@@ -436,6 +450,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 - [ ] SSL certificate errors
 
 ### Cron Edge Cases (0% tested):
+
 - [ ] Concurrent execution prevention
 - [ ] Invalid cron expressions
 - [ ] Schedule update during active job
@@ -450,6 +465,7 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 **Coverage: 0%**
 
 No integration tests exist for:
+
 - [ ] Full end-to-end workflow: add site → cron fetch → summarize → notify → verify DB
 - [ ] Database + API interactions
 - [ ] Cron job + extractors + notifications pipeline
@@ -462,9 +478,11 @@ No integration tests exist for:
 ## Implementation Plan
 
 ### Phase 1: Critical Core Logic (Week 1-2)
+
 **Priority: 🔴 Critical - These are the most important gaps**
 
 #### 1.1 Extractor Tests (`extractors.test.js`)
+
 **Estimated: 2-3 days**
 
 ```
@@ -472,6 +490,7 @@ Create: src/server/__tests__/extractors.test.js
 ```
 
 **Tests to implement:**
+
 - [ ] cleanHTML() - 3 tests
 - [ ] fetchRSSFeed() - 6 tests (mock axios/rss-parser)
 - [ ] fetchHTMLWithRules() - 9 tests (mock axios/cheerio)
@@ -481,6 +500,7 @@ Create: src/server/__tests__/extractors.test.js
 - [ ] fetchSiteContent() - 5 tests (integration of above)
 
 **Key mocking required:**
+
 - axios.get()
 - rss-parser.parseURL()
 - OpenAI client
@@ -489,6 +509,7 @@ Create: src/server/__tests__/extractors.test.js
 **Total: ~43 test cases**
 
 #### 1.2 Cron Tests (`cron.test.js`)
+
 **Estimated: 2 days**
 
 ```
@@ -496,6 +517,7 @@ Create: src/server/__tests__/cron.test.js
 ```
 
 **Tests to implement:**
+
 - [ ] runCheck() - 14 tests (mock all extractors)
 - [ ] updateSchedule() - 4 tests
 - [ ] initCron() - 3 tests
@@ -503,6 +525,7 @@ Create: src/server/__tests__/cron.test.js
 - [ ] Integration test - full workflow - 1 test
 
 **Key mocking required:**
+
 - node-cron
 - extractors module
 - db module (partially)
@@ -510,6 +533,7 @@ Create: src/server/__tests__/cron.test.js
 **Total: ~25 test cases**
 
 #### 1.3 Database Critical Functions
+
 **Estimated: 1 day**
 
 ```
@@ -517,6 +541,7 @@ Update: src/server/__tests__/db.test.js
 ```
 
 **Tests to add:**
+
 - [ ] getActiveSites() - 3 tests
 - [ ] createPost() duplicate handling - 3 tests
 - [ ] cleanupOldContent() - 5 tests
@@ -529,9 +554,11 @@ Update: src/server/__tests__/db.test.js
 ---
 
 ### Phase 2: API Completeness (Week 3)
+
 **Priority: 🟡 High - Complete API coverage**
 
 #### 2.1 Sites API Completion
+
 **Estimated: 2 days**
 
 ```
@@ -539,6 +566,7 @@ Update: src/server/__tests__/sites-api.test.js
 ```
 
 **Tests to add:**
+
 - [ ] getOne() - 3 tests
 - [ ] update() - 6 tests
 - [ ] remove() - 3 tests
@@ -551,6 +579,7 @@ Update: src/server/__tests__/sites-api.test.js
 **Total: ~34 test cases**
 
 #### 2.2 Posts API Completion
+
 **Estimated: 0.5 days**
 
 ```
@@ -558,6 +587,7 @@ Update: src/server/__tests__/posts-api.test.js
 ```
 
 **Tests to add:**
+
 - [ ] remove() - 2 tests
 - [ ] truncate() - 2 tests
 - [ ] getAll() advanced filters - 3 tests
@@ -565,6 +595,7 @@ Update: src/server/__tests__/posts-api.test.js
 **Total: ~7 test cases**
 
 #### 2.3 Config API Completion
+
 **Estimated: 0.5 days**
 
 ```
@@ -572,12 +603,14 @@ Update: src/server/__tests__/config-api.test.js
 ```
 
 **Tests to add:**
+
 - [ ] testAI() - 6 tests
 - [ ] update() with schedule change - 2 tests
 
 **Total: ~8 test cases**
 
 #### 2.4 Cron API Tests
+
 **Estimated: 0.5 days**
 
 ```
@@ -585,6 +618,7 @@ Create: src/server/__tests__/cron-api.test.js
 ```
 
 **Tests to add:**
+
 - [ ] runNow() - 3 tests
 
 **Total: ~3 test cases**
@@ -592,12 +626,15 @@ Create: src/server/__tests__/cron-api.test.js
 ---
 
 ### Phase 3: Edge Cases & Error Handling (Week 4)
+
 **Priority: 🟡 High - Robustness**
 
 #### 3.1 API Error Handling Tests
+
 **Estimated: 1 day**
 
 **Add to all API test files:**
+
 - [ ] Database connection failures
 - [ ] Invalid parameter types
 - [ ] Malformed JSON
@@ -607,6 +644,7 @@ Create: src/server/__tests__/cron-api.test.js
 **Total: ~25 test cases across all APIs**
 
 #### 3.2 Database Edge Cases
+
 **Estimated: 1 day**
 
 ```
@@ -614,6 +652,7 @@ Update: src/server/__tests__/db.test.js
 ```
 
 **Tests to add:**
+
 - [ ] Concurrent operations
 - [ ] Foreign key violations
 - [ ] Unique constraint edge cases
@@ -623,6 +662,7 @@ Update: src/server/__tests__/db.test.js
 **Total: ~15 test cases**
 
 #### 3.3 Extractor Edge Cases
+
 **Estimated: 1 day**
 
 ```
@@ -630,6 +670,7 @@ Update: src/server/__tests__/extractors.test.js
 ```
 
 **Tests to add:**
+
 - [ ] Network timeouts
 - [ ] Malformed data
 - [ ] API rate limits
@@ -642,9 +683,11 @@ Update: src/server/__tests__/extractors.test.js
 ---
 
 ### Phase 4: Integration & E2E Tests (Week 5)
+
 **Priority: 🟢 Medium - Quality assurance**
 
 #### 4.1 Integration Tests
+
 **Estimated: 2 days**
 
 ```
@@ -652,6 +695,7 @@ Create: src/server/__tests__/integration.test.js
 ```
 
 **Tests to implement:**
+
 - [ ] Full workflow: create site → manual trigger → verify posts → verify Slack
 - [ ] Config update affects running cron
 - [ ] Multi-site processing
@@ -661,6 +705,7 @@ Create: src/server/__tests__/integration.test.js
 **Total: ~10 test cases**
 
 #### 4.2 Utilities Completion
+
 **Estimated: 0.5 days**
 
 ```
@@ -668,6 +713,7 @@ Update: src/server/__tests__/utils.test.js
 ```
 
 **Tests to add:**
+
 - [ ] Logger database logging - 4 tests
 - [ ] Logger error fallback - 2 tests
 
@@ -676,12 +722,15 @@ Update: src/server/__tests__/utils.test.js
 ---
 
 ### Phase 5: Test Infrastructure Improvements (Week 5)
+
 **Priority: 🟢 Medium - Test quality**
 
 #### 5.1 Improve Test Setup
+
 **Estimated: 1 day**
 
 **Improvements needed:**
+
 - [ ] Create proper mock factory for Fastify reply objects
 - [ ] Create shared test fixtures for sites/posts/config
 - [ ] Better test isolation (separate DB per test file)
@@ -689,9 +738,11 @@ Update: src/server/__tests__/utils.test.js
 - [ ] Setup proper teardown for all tests
 
 #### 5.2 Mock Improvements
+
 **Estimated: 1 day**
 
 **Create mock utilities:**
+
 - [ ] Mock OpenAI client factory
 - [ ] Mock axios factory with response fixtures
 - [ ] Mock RSS parser factory
@@ -702,6 +753,7 @@ Update: src/server/__tests__/utils.test.js
 ## Testing Best Practices to Implement
 
 ### 1. Test Structure
+
 ```javascript
 // Use AAA pattern consistently
 test('should create site with valid data', async () => {
@@ -718,6 +770,7 @@ test('should create site with valid data', async () => {
 ```
 
 ### 2. Proper Mocking
+
 ```javascript
 // Mock external dependencies
 import sinon from 'sinon';
@@ -730,6 +783,7 @@ axiosStub.restore();
 ```
 
 ### 3. Test Isolation
+
 ```javascript
 // Each test should have independent data
 beforeEach(() => {
@@ -744,6 +798,7 @@ afterEach(() => {
 ```
 
 ### 4. Error Testing
+
 ```javascript
 test('should handle network errors gracefully', async () => {
   axiosStub.rejects(new Error('Network timeout'));
@@ -756,6 +811,7 @@ test('should handle network errors gracefully', async () => {
 ```
 
 ### 5. Async Testing
+
 ```javascript
 // Always use async/await
 test('async operation', async () => {
@@ -770,43 +826,48 @@ test('async operation', async () => {
 
 ### Target Coverage Metrics:
 
-| Module | Current | Target | Priority |
-|--------|---------|--------|----------|
-| Extractors | 0% | **90%** | 🔴 Critical |
-| Cron Logic | 0% | **85%** | 🔴 Critical |
-| Sites API | 20% | **80%** | 🟡 High |
-| Posts API | 60% | **85%** | 🟡 High |
-| Config API | 67% | **90%** | 🟡 High |
-| Database | 32% | **85%** | 🟡 High |
-| Utilities | 50% | **80%** | 🟢 Medium |
-| **Overall** | **~25%** | **85%** | - |
+| Module      | Current  | Target  | Priority    |
+| ----------- | -------- | ------- | ----------- |
+| Extractors  | 0%       | **90%** | 🔴 Critical |
+| Cron Logic  | 0%       | **85%** | 🔴 Critical |
+| Sites API   | 20%      | **80%** | 🟡 High     |
+| Posts API   | 60%      | **85%** | 🟡 High     |
+| Config API  | 67%      | **90%** | 🟡 High     |
+| Database    | 32%      | **85%** | 🟡 High     |
+| Utilities   | 50%      | **80%** | 🟢 Medium   |
+| **Overall** | **~25%** | **85%** | -           |
 
 ---
 
 ## Success Criteria
 
 ### Phase 1 Complete When:
+
 - [ ] All extractor functions have >85% coverage
 - [ ] All cron functions have >80% coverage
 - [ ] Critical DB functions (getActiveSites, createPost duplicates, cleanup) tested
 - [ ] Can run `npm test` and see >50% overall coverage
 
 ### Phase 2 Complete When:
+
 - [ ] All API endpoints have at least 2 test cases (happy + error)
 - [ ] All CRUD operations fully tested
 - [ ] Coverage >65%
 
 ### Phase 3 Complete When:
+
 - [ ] All error paths tested
 - [ ] All edge cases documented and tested
 - [ ] Coverage >75%
 
 ### Phase 4 Complete When:
+
 - [ ] At least 5 integration tests passing
 - [ ] End-to-end workflow verified
 - [ ] Coverage >85%
 
 ### Phase 5 Complete When:
+
 - [ ] Test infrastructure robust
 - [ ] CI/CD can run tests reliably
 - [ ] Coverage reports generated automatically
@@ -816,16 +877,19 @@ test('async operation', async () => {
 ## Resources Needed
 
 ### Dependencies:
+
 - `sinon` - Already installed ✅
 - `nock` - For HTTP mocking (consider adding)
 - `@faker-js/faker` - For test data generation (consider adding)
 
 ### Documentation:
+
 - Mock examples for OpenAI API
 - Test fixtures for RSS feeds
 - Sample HTML for selector testing
 
 ### Time Estimate:
+
 - **Phase 1:** 5-6 days (Critical)
 - **Phase 2:** 3-4 days (High)
 - **Phase 3:** 3 days (High)
@@ -863,6 +927,7 @@ test('async operation', async () => {
 The current test suite validates basic CRUD operations but **completely misses the core application logic** (extractors, cron jobs). Implementing Phase 1 should be the **immediate priority** as it covers the most critical business logic that has zero coverage today.
 
 **Recommended Approach:**
+
 1. Start with Phase 1 (Extractors + Cron) - **2 weeks**
 2. Move to Phase 2 (API Completion) - **1 week**
 3. Add Phase 3 (Edge Cases) as time permits - **1 week**

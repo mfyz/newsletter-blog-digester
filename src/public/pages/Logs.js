@@ -34,9 +34,12 @@ export default function Logs() {
 
       const response = await fetch(url);
       const data = await response.json();
-      setLogs(data);
+
+      // Ensure data is always an array
+      setLogs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load logs:', error);
+      setLogs([]);
     } finally {
       setLoading(false);
     }

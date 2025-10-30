@@ -22,7 +22,7 @@ export default function PostCard({ post, timeAgo }) {
             <div class="flex items-center gap-2 text-sm text-gray-500">
               <span class="font-medium">${post.site_title}</span>
               <span>•</span>
-              <span>${timeAgo(post.created_at)}</span>
+              <span>${timeAgo(post.date || post.created_at)}</span>
             </div>
           </div>
 

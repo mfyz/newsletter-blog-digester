@@ -90,6 +90,43 @@ const start = async () => {
   }
 };
 
+// Graceful shutdown handling to prevent database corruption
+const gracefulShutdown = async (signal) => {
+  logger.info(`Received ${signal}, starting graceful shutdown...`);
+
+  try {
+    // Stop accepting new connections
+    await fastify.close();
+    logger.info('Fastify server closed');
+
+    // Close database connection properly
+    const { closeDb } = await import('./db.js');
+    closeDb();
+    logger.info('Database connection closed');
+
+    logger.info('Graceful shutdown complete');
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during graceful shutdown', { error: error.message });
+    process.exit(1);
+  }
+};
+
+// Handle various shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught errors to prevent database corruption
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception', { error: error.message, stack: error.stack });
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled rejection', { reason, promise });
+  gracefulShutdown('unhandledRejection');
+});
+
 start();
 
 export default fastify;

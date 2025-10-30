@@ -14,7 +14,24 @@ export function initDb(dbPath = null) {
   const finalPath = dbPath || path.join(__dirname, '../../data.db');
 
   db = new Database(finalPath);
-  db.pragma('journal_mode = WAL');
+
+  // Use DELETE journal mode (traditional SQLite mode)
+  // Simpler than WAL, single .db file, external changes visible immediately
+  // Perfect for low-concurrency apps where simplicity > performance
+  db.pragma('journal_mode = DELETE');
+
+  // Set synchronous to FULL for maximum durability
+  // All writes are synced to disk before continuing
+  db.pragma('synchronous = FULL');
+
+  // Set busy timeout to 5 seconds to handle concurrent access
+  db.pragma('busy_timeout = 5000');
+
+  // Enable foreign keys
+  db.pragma('foreign_keys = ON');
+
+  // Enable automatic index creation for better query performance
+  db.pragma('automatic_index = ON');
 
   createTables();
   runMigrations();
@@ -312,7 +329,7 @@ export function getPosts(filters = {}) {
     params.push(filters.notified);
   }
 
-  query += ' ORDER BY p.created_at DESC';
+  query += ' ORDER BY p.date DESC, p.created_at DESC';
 
   if (filters.limit) {
     query += ' LIMIT ?';

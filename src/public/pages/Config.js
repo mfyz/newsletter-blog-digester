@@ -186,7 +186,7 @@ export default function Config() {
               placeholder="https://api.openai.com/v1"
             />
             <p class="text-sm text-gray-500">
-              Base URL for OpenAI-compatible API. Use http://host.docker.internal:1234/v1 for local providers like Ollama or LM Studio running on your host machine
+              Base URL for OpenAI-compatible API. Leave empty to use OpenAI API. Use http://host.docker.internal:1234/v1 for local providers like Ollama or LM Studio running on your host machine
             </p>
 
             <${Input}

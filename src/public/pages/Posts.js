@@ -1,6 +1,7 @@
 import { h } from 'https://esm.sh/preact@10.19.3';
 import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
+import snarkdown from 'https://esm.sh/snarkdown@2.0.0';
 import Select from '../components/Select.js';
 import Input from '../components/Input.js';
 import { toast } from '../utils/toast.js';
@@ -201,7 +202,7 @@ export default function Posts() {
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
                       <div class="text-sm text-gray-500">
-                        ${timeAgo(post.published_at || post.created_at)}
+                        ${timeAgo(post.date || post.created_at)}
                       </div>
                     </td>
                   </tr>
@@ -236,25 +237,26 @@ export default function Posts() {
                           ${post.summary && html`
                             <div>
                               <div class="text-xs font-medium text-gray-500 uppercase mb-1">AI Summary</div>
-                              <div class="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded p-4 whitespace-pre-wrap">
-                                ${post.summary}
-                              </div>
+                              <div
+                                class="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded p-4 prose prose-sm max-w-none"
+                                dangerouslySetInnerHTML=${{ __html: snarkdown(post.summary) }}
+                              />
                             </div>
                           `}
 
                           <!-- Metadata -->
                           <div class="flex gap-6 text-xs text-gray-500">
-                            <div>
-                              <span class="font-medium">Created:</span> ${new Date(post.created_at).toLocaleString()}
-                            </div>
-                            ${post.published_at && html`
+                            ${post.date && html`
                               <div>
-                                <span class="font-medium">Published:</span> ${new Date(post.published_at).toLocaleString()}
+                                <span class="font-medium">Published:</span> ${new Date(post.date).toLocaleString()}
                               </div>
                             `}
-                            ${post.sent_to_slack && html`
+                            <div>
+                              <span class="font-medium">Added to DB:</span> ${new Date(post.created_at).toLocaleString()}
+                            </div>
+                            ${post.notified && html`
                               <div>
-                                <span class="font-medium">Sent to Slack:</span> ${new Date(post.sent_to_slack).toLocaleString()}
+                                <span class="font-medium">Notified:</span> Yes
                               </div>
                             `}
                           </div>
