@@ -8,17 +8,17 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 
 ## Current Coverage Overview
 
-| Module             | Total Functions/Endpoints | Tested | Coverage | Status          |
-| ------------------ | ------------------------- | ------ | -------- | --------------- |
-| Sites API          | 10 endpoints              | 2      | 20%      | 🔴 Critical     |
-| Posts API          | 5 endpoints               | 3      | 60%      | 🟡 Moderate     |
-| Config API         | 3 endpoints               | 2      | 67%      | 🟡 Moderate     |
-| Logs API           | 1 endpoint                | 1      | 100%     | ✅ Complete     |
-| Cron API           | 1 endpoint                | 0      | 0%       | 🔴 Critical     |
-| Database Functions | 25 functions              | 25     | 100%     | ✅ Complete     |
-| Extractors         | 7 functions               | 6      | 86%      | ✅ Complete     |
-| Cron Logic         | 4 functions               | 3      | 75%      | ✅ Complete     |
-| Utilities          | 4 functions               | 4      | 100%     | ✅ Complete     |
+| Module             | Total Functions/Endpoints | Tested | Coverage | Status      |
+| ------------------ | ------------------------- | ------ | -------- | ----------- |
+| Sites API          | 10 endpoints              | 2      | 20%      | 🔴 Critical |
+| Posts API          | 5 endpoints               | 3      | 60%      | 🟡 Moderate |
+| Config API         | 3 endpoints               | 2      | 67%      | 🟡 Moderate |
+| Logs API           | 1 endpoint                | 1      | 100%     | ✅ Complete |
+| Cron API           | 1 endpoint                | 0      | 0%       | 🔴 Critical |
+| Database Functions | 25 functions              | 25     | 100%     | ✅ Complete |
+| Extractors         | 7 functions               | 6      | 86%      | ✅ Complete |
+| Cron Logic         | 4 functions               | 3      | 75%      | ✅ Complete |
+| Utilities          | 4 functions               | 4      | 100%     | ✅ Complete |
 
 **Overall Estimated Coverage: ~70%** (up from 20-30%)
 
