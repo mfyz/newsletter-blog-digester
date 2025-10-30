@@ -12,6 +12,8 @@ A single-file Fastify application that periodically checks websites/blogs, summa
 - **Scheduling**: node-cron (supports dynamic schedule updates)
 - **AI**: OpenAI API for summarization
 - **Frontend**: Preact (CDN via esm.sh) + HTM (JSX-like syntax) + Tailwind CSS (CDN) - No build system!
+- **Notifications**: Notyf (toast notifications, CDN)
+- **Modals**: Micromodal (confirmation dialogs, CDN)
 - **Container**: Docker Compose (bind mounts for live development)
 
 ## Project Structure

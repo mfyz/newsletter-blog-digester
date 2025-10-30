@@ -200,3 +200,133 @@ export async function toggleActive(req, reply) {
     return reply.code(500).send({ error: 'Failed to toggle site' });
   }
 }
+
+/**
+ * POST /api/sites/fetch-html - Fetch and return HTML from URL
+ */
+export async function fetchHTML(req, reply) {
+  try {
+    const { url } = req.body;
+
+    if (!url) {
+      return reply.code(400).send({ error: 'URL is required' });
+    }
+
+    // Import axios dynamically
+    const axios = (await import('axios')).default;
+
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (compatible; NewsletterDigester/1.0; +https://github.com/yourrepo)',
+      },
+      timeout: 30000,
+    });
+
+    return {
+      success: true,
+      html: response.data,
+      url,
+    };
+  } catch (error) {
+    logger.error('Failed to fetch HTML', { error: error.message });
+    return reply.code(500).send({ error: error.message });
+  }
+}
+
+/**
+ * POST /api/sites/generate-selectors - Generate CSS selectors using LLM
+ */
+export async function generateSelectors(req, reply) {
+  try {
+    const { url, html, prompt } = req.body;
+
+    if (!html) {
+      return reply.code(400).send({ error: 'HTML is required' });
+    }
+
+    // Get OpenAI API key from config
+    const apiKey = db.getConfig('openai_api_key');
+    if (!apiKey) {
+      return reply.code(400).send({ error: 'OpenAI API key not configured. Please configure it in Settings.' });
+    }
+
+    // Import OpenAI dynamically
+    const OpenAI = (await import('openai')).default;
+    const baseURL = db.getConfig('openai_base_url') || 'https://api.openai.com/v1';
+    const openai = new OpenAI({ apiKey, baseURL });
+
+    // Import extractors for HTML cleaning
+    const { cleanHTML } = await import('../extractors.js');
+
+    // Clean HTML to remove script and style tags
+    let cleanedHTML = html;
+    // Remove script tags and their contents
+    cleanedHTML = cleanedHTML.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    // Remove style tags and their contents
+    cleanedHTML = cleanedHTML.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+
+    // Default prompt for generating selectors
+    const defaultPrompt = `You are a web scraping expert. Given the HTML of a blog/news page, generate CSS selectors to extract post information.
+
+Return a JSON object with the following structure:
+{
+  "postContainer": "CSS selector that matches each post/article container",
+  "title": "CSS selector for post title (relative to container)",
+  "link": "CSS selector for post link (relative to container)",
+  "date": "CSS selector for post date (relative to container, optional)",
+  "content": "CSS selector for post content/excerpt (relative to container, optional)"
+}
+
+Make sure the selectors are as specific as possible but not overly fragile. Prefer class names and semantic tags.
+Only return the JSON object, no additional text.`;
+
+    const finalPrompt = prompt || defaultPrompt;
+
+    // Call OpenAI
+    const response = await openai.chat.completions.create({
+      model: db.getConfig('openai_model') || 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: finalPrompt },
+        {
+          role: 'user',
+          content: `Base URL: ${url || 'N/A'}\n\nHTML (truncated to first 15000 chars):\n${cleanedHTML.substring(0, 15000)}`,
+        },
+      ],
+      temperature: 0.3,
+    });
+
+    const content = response.choices[0].message.content;
+
+    // Try to parse as JSON
+    let selectors;
+    try {
+      // Extract JSON from markdown code blocks if present
+      let jsonContent = content;
+      const jsonMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+      if (jsonMatch) {
+        jsonContent = jsonMatch[1];
+      }
+
+      selectors = JSON.parse(jsonContent);
+    } catch (e) {
+      logger.error('Failed to parse LLM response for selector generation', {
+        error: e.message,
+        content,
+      });
+      return reply.code(500).send({
+        error: 'Failed to parse LLM response as JSON',
+        raw_response: content
+      });
+    }
+
+    return {
+      success: true,
+      selectors,
+      raw_response: content,
+    };
+  } catch (error) {
+    logger.error('Failed to generate selectors', { error: error.message });
+    return reply.code(500).send({ error: error.message });
+  }
+}

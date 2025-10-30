@@ -5,6 +5,8 @@ import Button from '../components/Button.js';
 import Input from '../components/Input.js';
 import Select from '../components/Select.js';
 import Modal from '../components/Modal.js';
+import { toast } from '../utils/toast.js';
+import { modal } from '../utils/modal.js';
 
 const html = htm.bind(h);
 
@@ -51,7 +53,7 @@ export default function Sites({ onNavigate }) {
       setSites(data);
     } catch (error) {
       console.error('Failed to load sites:', error);
-      alert('Failed to load sites');
+      toast.error('Failed to load sites');
     } finally {
       setLoading(false);
     }
@@ -85,14 +87,14 @@ export default function Sites({ onNavigate }) {
 
   const handleTest = async () => {
     if (!formData.url) {
-      alert('Please enter a URL first');
+      toast.warning('Please enter a URL first');
       return;
     }
 
     if (formData.type === 'html_rules') {
       const rules = getRules();
       if (!rules.postContainer || !rules.title || !rules.link) {
-        alert('Please fill in at least the Post Container, Title, and Link selectors');
+        toast.warning('Please fill in at least the Post Container, Title, and Link selectors');
         return;
       }
 
@@ -105,17 +107,17 @@ export default function Sites({ onNavigate }) {
 
         const data = await response.json();
         if (response.ok) {
-          alert(`Success! Found ${data.total} posts.\n\nFirst post: ${data.posts[0]?.title || 'N/A'}\n\nCheck browser console for full results.`);
+          toast.success(`Success! Found ${data.total} posts. Check console for details.`);
           console.log('Test Results:', data);
         } else {
-          alert('Test failed: ' + (data.error || 'Unknown error'));
+          toast.error('Test failed: ' + (data.error || 'Unknown error'));
         }
       } catch (error) {
-        alert('Test failed: ' + error.message);
+        toast.error('Test failed: ' + error.message);
       }
     } else if (formData.type === 'html_llm') {
       if (!formData.extraction_instructions) {
-        alert('Please enter extraction instructions first');
+        toast.warning('Please enter extraction instructions first');
         return;
       }
 
@@ -131,13 +133,13 @@ export default function Sites({ onNavigate }) {
 
         const data = await response.json();
         if (response.ok) {
-          alert(`Success! Found ${data.count} posts.\n\nFirst post: ${data.posts[0]?.title || 'N/A'}\n\nCheck browser console for full results.`);
+          toast.success(`Success! Found ${data.count} posts. Check console for details.`);
           console.log('Test Results:', data);
         } else {
-          alert('Test failed: ' + (data.error || 'Unknown error'));
+          toast.error('Test failed: ' + (data.error || 'Unknown error'));
         }
       } catch (error) {
-        alert('Test failed: ' + error.message);
+        toast.error('Test failed: ' + error.message);
       }
     }
   };
@@ -158,20 +160,29 @@ export default function Sites({ onNavigate }) {
       if (response.ok) {
         setShowModal(false);
         loadSites();
+        toast.success(editingSite ? 'Site updated successfully' : 'Site created successfully');
       } else {
         const error = await response.json();
-        alert('Failed to save site: ' + (error.error || 'Unknown error'));
+        toast.error('Failed to save site: ' + (error.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to save site:', error);
-      alert('Failed to save site');
+      toast.error('Failed to save site');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this site? All associated posts will also be deleted.')) {
-      return;
-    }
+    const confirmed = await modal.confirm(
+      'Are you sure you want to delete this site? All associated posts will also be deleted.',
+      {
+        title: 'Delete Site',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        confirmClass: 'modal__btn-danger'
+      }
+    );
+
+    if (!confirmed) return;
 
     try {
       const response = await fetch(`/api/sites/${id}`, {
@@ -180,12 +191,13 @@ export default function Sites({ onNavigate }) {
 
       if (response.ok) {
         loadSites();
+        toast.success('Site deleted successfully');
       } else {
-        alert('Failed to delete site');
+        toast.error('Failed to delete site');
       }
     } catch (error) {
       console.error('Failed to delete site:', error);
-      alert('Failed to delete site');
+      toast.error('Failed to delete site');
     }
   };
 
@@ -195,9 +207,10 @@ export default function Sites({ onNavigate }) {
         method: 'POST'
       });
       loadSites();
+      toast.success(`Site ${site.is_active ? 'deactivated' : 'activated'}`);
     } catch (error) {
       console.error('Failed to toggle site:', error);
-      alert('Failed to update site');
+      toast.error('Failed to update site');
     }
   };
 

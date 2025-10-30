@@ -8,6 +8,8 @@ import Logs from './Logs.js';
 import SelectorBuilder from './SelectorBuilder.js';
 import PromptEditor from './PromptEditor.js';
 import Button from '../components/Button.js';
+import { toast } from '../utils/toast.js';
+import { modal } from '../utils/modal.js';
 
 const html = htm.bind(h);
 
@@ -45,9 +47,9 @@ export default function App() {
     try {
       const response = await fetch('/api/cron/run', { method: 'POST' });
       const result = await response.json();
-      alert(result.message || 'Cron check started successfully!');
+      toast.success(result.message || 'Cron check started successfully!');
     } catch (error) {
-      alert('Failed to run cron: ' + error.message);
+      toast.error('Failed to run cron: ' + error.message);
     } finally {
       setCronRunning(false);
     }

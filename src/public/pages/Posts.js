@@ -3,6 +3,8 @@ import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
 import Select from '../components/Select.js';
 import Input from '../components/Input.js';
+import { toast } from '../utils/toast.js';
+import { modal } from '../utils/modal.js';
 
 const html = htm.bind(h);
 
@@ -56,16 +58,24 @@ export default function Posts() {
       setSites(Array.isArray(sitesData) ? sitesData : []);
     } catch (error) {
       console.error('Failed to load data:', error);
-      alert('Failed to load posts');
+      toast.error('Failed to load posts');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeletePost = async (postId, postTitle) => {
-    if (!confirm(`Are you sure you want to delete this post?\n\n"${postTitle}"\n\nThis action cannot be undone.`)) {
-      return;
-    }
+    const confirmed = await modal.confirm(
+      `Are you sure you want to delete this post?<br><br><strong>"${postTitle}"</strong><br><br>This action cannot be undone.`,
+      {
+        title: 'Delete Post',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        confirmClass: 'modal__btn-danger'
+      }
+    );
+
+    if (!confirmed) return;
 
     try {
       const response = await fetch(`/api/posts/${postId}`, {
@@ -76,14 +86,14 @@ export default function Posts() {
         // Remove the post from state
         setPosts(posts.filter(p => p.id !== postId));
         setExpandedPost(null);
-        alert('Post deleted successfully');
+        toast.success('Post deleted successfully');
       } else {
         const data = await response.json();
-        alert('Failed to delete post: ' + (data.error || 'Unknown error'));
+        toast.error('Failed to delete post: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to delete post:', error);
-      alert('Failed to delete post');
+      toast.error('Failed to delete post');
     }
   };
 

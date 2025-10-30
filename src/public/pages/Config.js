@@ -3,6 +3,8 @@ import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
 import Button from '../components/Button.js';
 import Input from '../components/Input.js';
+import { toast } from '../utils/toast.js';
+import { modal } from '../utils/modal.js';
 
 const html = htm.bind(h);
 
@@ -24,7 +26,7 @@ export default function Config() {
       setConfig(data);
     } catch (error) {
       console.error('Failed to load config:', error);
-      alert('Failed to load configuration');
+      toast.error('Failed to load configuration');
     } finally {
       setLoading(false);
     }
@@ -42,15 +44,15 @@ export default function Config() {
       });
 
       if (response.ok) {
-        alert('Configuration saved successfully!');
+        toast.success('Configuration saved successfully!');
         loadConfig();
       } else {
         const error = await response.json();
-        alert('Failed to save config: ' + (error.error || 'Unknown error'));
+        toast.error('Failed to save config: ' + (error.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to save config:', error);
-      alert('Failed to save configuration');
+      toast.error('Failed to save configuration');
     } finally {
       setSaving(false);
     }
@@ -91,9 +93,17 @@ export default function Config() {
   };
 
   const handleTruncatePosts = async () => {
-    if (!confirm('⚠️ WARNING: This will permanently delete ALL posts from the database. This action cannot be undone. Are you sure you want to continue?')) {
-      return;
-    }
+    const confirmed = await modal.confirm(
+      '⚠️ WARNING: This will permanently delete ALL posts from the database. This action cannot be undone. Are you sure you want to continue?',
+      {
+        title: 'Truncate All Posts',
+        confirmText: 'Delete All Posts',
+        cancelText: 'Cancel',
+        confirmClass: 'modal__btn-danger'
+      }
+    );
+
+    if (!confirmed) return;
 
     try {
       const response = await fetch('/api/posts/truncate', {
@@ -103,13 +113,13 @@ export default function Config() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Successfully deleted ${data.deletedCount || 'all'} posts from the database.`);
+        toast.success(`Successfully deleted ${data.deletedCount || 'all'} posts from the database.`);
       } else {
-        alert('Failed to truncate posts: ' + (data.error || 'Unknown error'));
+        toast.error('Failed to truncate posts: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to truncate posts:', error);
-      alert('Failed to truncate posts');
+      toast.error('Failed to truncate posts');
     }
   };
 

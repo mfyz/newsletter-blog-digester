@@ -3,6 +3,8 @@ import { useState } from 'https://esm.sh/preact@10.19.3/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
 import Button from '../components/Button.js';
 import Input from '../components/Input.js';
+import { toast } from '../utils/toast.js';
+import { modal } from '../utils/modal.js';
 
 const html = htm.bind(h);
 
@@ -207,7 +209,7 @@ export default function PromptEditor() {
                   variant="secondary"
                   onClick=${() => {
                     navigator.clipboard.writeText(instructions);
-                    alert('Instructions copied to clipboard!');
+                    toast.success('Instructions copied to clipboard!');
                   }}
                 >
                   Copy Instructions
