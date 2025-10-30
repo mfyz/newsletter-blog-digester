@@ -18,9 +18,9 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 | Database Functions | 25 functions              | 25     | 100%     | ✅ Complete     |
 | Extractors         | 7 functions               | 6      | 86%      | ✅ Complete     |
 | Cron Logic         | 5 functions               | 0      | 0%       | 🔴 **CRITICAL** |
-| Utilities          | 4 functions               | 2      | 50%      | 🟡 Moderate     |
+| Utilities          | 4 functions               | 4      | 100%     | ✅ Complete     |
 
-**Overall Estimated Coverage: ~60%** (up from 20-30%)
+**Overall Estimated Coverage: ~65%** (up from 20-30%)
 
 ---
 
@@ -292,27 +292,24 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 
 ### 9. Utility Functions (`src/server/utils.js`)
 
-**Coverage: 2/4 functions (50%)**
+**Coverage: 4/4 functions (100%)** ✅ **COMPLETED**
 
 #### ✅ Currently Tested:
 
-- `toAbsoluteUrl()` - multiple cases
-- `timeAgo()` - multiple time ranges
+- `toAbsoluteUrl()` - 3 tests (relative URLs, absolute URLs, empty URLs)
+- `timeAgo()` - 1 test (multiple time ranges: seconds, minutes, hours, days)
+- `logger.info()` - 2 tests (console + database logging, null details handling)
+- `logger.error()` - 1 test (console + database logging)
+- `logger.warn()` - 1 test (console + database logging)
+- `logger._logToDb()` - 1 test (JSON stringification of complex details)
 
-#### ❌ NOT Tested:
+**Implementation Notes:**
 
-**Missing Tests (2 functions/aspects):**
-
-1. **logger.info() / error() / warn()**
-   - Console output
-   - Database logging
-   - JSON stringification of details
-   - Null details handling
-
-2. **logger._logToDb()**
-   - Successful DB insert
-   - Fallback to console on DB error
-   - Handle DB not initialized
+- Added 5 new test cases for logger functionality
+- Tests verify both console output and database inserts
+- Tests verify JSON stringification of nested objects, arrays, and primitives
+- Note: DB error fallback testing skipped due to ES module stubbing limitations (cannot stub module exports with sinon)
+- All 92 tests passing (including 9 utils tests)
 
 ---
 
@@ -618,20 +615,23 @@ Create: src/server/__tests__/integration.test.js
 
 **Total: ~10 test cases**
 
-#### 4.2 Utilities Completion
+#### 4.2 Utilities Completion ✅ **COMPLETED**
 
-**Estimated: 0.5 days**
+**Completed: Section 9**
 
 ```
-Update: src/server/__tests__/utils.test.js
+Updated: src/server/__tests__/utils.test.js
 ```
 
-**Tests to add:**
+**Tests added:**
 
-- [ ] Logger database logging - 4 tests
-- [ ] Logger error fallback - 2 tests
+- [x] logger.info() - console and database logging - 2 tests
+- [x] logger.error() - console and database logging - 1 test
+- [x] logger.warn() - console and database logging - 1 test
+- [x] logger._logToDb() - JSON stringification - 1 test
+- [ ] Logger error fallback - skipped (ES module stubbing limitations)
 
-**Total: ~6 test cases**
+**Total: 5 test cases (all passing)**
 
 ---
 
