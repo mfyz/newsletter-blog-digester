@@ -1,9 +1,9 @@
 import axios from 'axios';
 import Parser from 'rss-parser';
 import * as cheerio from 'cheerio';
-import OpenAI from 'openai';
 import * as db from './db.js';
 import { logger, toAbsoluteUrl } from './utils.js';
+import { OpenAIClient } from './openai-client.js';
 
 const rssParser = new Parser();
 
@@ -201,14 +201,8 @@ export async function fetchHTMLWithRules(site) {
  */
 export async function fetchHTMLWithLLM(site) {
   try {
-    // Get OpenAI API key from config
-    const apiKey = db.getConfig('openai_api_key');
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    const baseURL = db.getConfig('openai_base_url') || 'https://api.openai.com/v1';
-    const openai = new OpenAI({ apiKey, baseURL });
+    // Create OpenAI client
+    const openaiClient = new OpenAIClient();
 
     // Fetch HTML
     const response = await axios.get(site.url, {
@@ -234,19 +228,13 @@ export async function fetchHTMLWithLLM(site) {
     }
 
     // Call OpenAI
-    const extraction = await openai.chat.completions.create({
-      model: db.getConfig('openai_model') || 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: fullPrompt },
-        {
-          role: 'user',
-          content: `Base URL: ${site.url}\n\nHTML (truncated to first 10000 chars):\n${cleanedHTML.substring(0, 10000)}`,
-        },
-      ],
-      temperature: 0.3,
-    });
-
-    const content = extraction.choices[0].message.content;
+    const content = await openaiClient.createChatCompletion([
+      { role: 'system', content: fullPrompt },
+      {
+        role: 'user',
+        content: `Base URL: ${site.url}\n\nHTML (truncated to first 10000 chars):\n${cleanedHTML.substring(0, 10000)}`,
+      },
+    ]);
 
     // Try to parse as JSON array directly or extract from object
     let result;
@@ -298,29 +286,21 @@ export async function fetchHTMLWithLLM(site) {
  */
 export async function summarizePost(content) {
   try {
-    // Get OpenAI API key from config
-    const apiKey = db.getConfig('openai_api_key');
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    const baseURL = db.getConfig('openai_base_url') || 'https://api.openai.com/v1';
-    const openai = new OpenAI({ apiKey, baseURL });
+    // Create OpenAI client
+    const openaiClient = new OpenAIClient();
 
     // Get summarization prompt from config
     const prompt = db.getConfig('prompt_summarization');
 
-    const response = await openai.chat.completions.create({
-      model: db.getConfig('openai_model') || 'gpt-3.5-turbo',
-      messages: [
+    const summary = await openaiClient.createChatCompletion(
+      [
         { role: 'system', content: prompt },
         { role: 'user', content: content.substring(0, 10000) }, // Limit content size
       ],
-      temperature: 0.3,
-      max_tokens: 200,
-    });
+      { max_tokens: 200 },
+    );
 
-    return response.choices[0].message.content.trim();
+    return summary.trim();
   } catch (error) {
     logger.error('Failed to summarize post', { error: error.message });
     return null; // Return null on error so we can still save the post
