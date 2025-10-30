@@ -111,6 +111,7 @@ src/public/
 ```
 
 **Key Frontend Concepts:**
+
 - Uses HTM for JSX-like syntax via tagged template literals: `html\`<div>...</div>\``
 - All imports from CDN: `import { h } from 'https://esm.sh/preact@10.19.3'`
 - Edit any `.js` file in `src/public/`, refresh browser to see changes (no build step)
@@ -121,15 +122,18 @@ src/public/
 SQLite database (`data.db`) with these tables:
 
 **sites** - RSS feeds and websites to monitor
+
 - `type` field supports: `'rss'`, `'html_rules'`, `'html_llm'`
 - `extraction_rules` - JSON array of CSS selector rules (for html_rules)
 - `extraction_instructions` - Additional LLM prompt context (for html_llm)
 
 **posts** - Extracted posts from sites
+
 - Composite unique constraint on `(url, title, date)` prevents duplicates
 - `notified` column tracks Slack notification status
 
 **config** - Application configuration (key-value pairs)
+
 - Includes: `schedule`, `openai_api_key`, `slack_webhook_url`, `prompt_summarization`, `prompt_html_extract_base`, `cleanup_content_days`, `cleanup_delete_days`
 
 **logs** - Application logs with levels (info, error, warn)
@@ -149,6 +153,7 @@ Three extraction types supported:
 ### Dynamic Cron Scheduling
 
 The cron job uses `node-cron` with dynamic schedule updates:
+
 - Schedule stored in config table as cron expression (e.g., "0 9 * * *")
 - On config update, cron task is stopped and restarted with new schedule
 - Manual "Check Now" button triggers immediate check without waiting for schedule
@@ -158,6 +163,7 @@ The cron job uses `node-cron` with dynamic schedule updates:
 **Framework:** uvu (ultra-fast test runner) + sinon (mocking) + c8 (coverage)
 
 **Test Files:**
+
 ```
 src/server/__tests__/
 ├── sites-api.test.js
@@ -169,6 +175,7 @@ src/server/__tests__/
 ```
 
 **Running single test file:**
+
 ```bash
 NODE_OPTIONS=--experimental-vm-modules npx uvu src/server/__tests__/sites-api.test.js
 ```
@@ -178,6 +185,7 @@ NODE_OPTIONS=--experimental-vm-modules npx uvu src/server/__tests__/sites-api.te
 ### Code Formatting
 
 Uses **dprint** (Rust-based formatter, 10-100x faster than Prettier):
+
 - Configuration in `dprint.json`
 - Enforces: single quotes, semicolons, 100-char line width, 2-space indentation
 - Pre-commit hook (Husky) automatically formats code and runs tests
@@ -186,18 +194,21 @@ Uses **dprint** (Rust-based formatter, 10-100x faster than Prettier):
 
 **Composite Unique Constraint:**
 Posts table uses `UNIQUE(url, title, date)` to handle cases where:
+
 - Same URL with different titles = different posts
 - Same title on different dates = different posts
 - Prevents duplicate notifications for identical posts
 
 **Database Cleanup:**
 Automatic cleanup runs daily at midnight:
+
 - Clears `content` column for posts older than `cleanup_content_days` (default: 7 days)
 - Deletes entire posts older than `cleanup_delete_days` (default: 365 days)
 - Keeps summaries for historical reference while managing database size
 
 **Multi-Rule Extraction (html_rules):**
 Each site can have multiple extraction rules in JSON format:
+
 ```json
 [
   {
@@ -216,14 +227,17 @@ Each site can have multiple extraction rules in JSON format:
   }
 ]
 ```
+
 All rules are applied independently and results combined - perfect for newsletters with multiple sections.
 
 **LLM Extraction (html_llm):**
+
 - Base prompt always from `prompt_html_extract_base` config (ensures consistent JSON output)
 - Site-specific `extraction_instructions` appended as additional context
 - Handles complex/changing HTML layouts but costs API credits
 
 **API Endpoints:**
+
 - Sites: GET/POST/PUT/DELETE `/api/sites`, POST `/api/sites/:id/check-now`, POST `/api/sites/test-extraction`, POST `/api/sites/test-llm-extraction`
 - Posts: GET `/api/posts`, GET `/api/posts/:id`, DELETE `/api/posts/:id`, POST `/api/posts/truncate/:site_id`
 - Config: GET/PUT `/api/config`
@@ -233,29 +247,36 @@ All rules are applied independently and results combined - perfect for newslette
 ## Important Notes
 
 ### Dependencies and Libraries
+
 - This project intentionally avoids having a build step for its front-end.
 - Most dependencies are loaded from CDN.
 - All dependencies are picked to be lightweight, dependency-free, preferably vanilla-JS and in a few kb in size.
 
 ### ES Modules
+
 This project uses ES modules (`"type": "module"` in package.json):
+
 - Use `import/export` syntax, not `require/module.exports`
 - File paths need `.js` extension in imports
 - Tests require `NODE_OPTIONS=--experimental-vm-modules` flag
 
 ### Frontend Development
+
 When editing frontend code:
+
 - Edit files in `src/public/pages/` or `src/public/components/`
 - Refresh browser to see changes (no build step)
 - Use HTM syntax: `html\`<${Component} prop=${value}>Content</${Component}>\``
 - Import from CDN: `import { h } from 'https://esm.sh/preact@10.19.3'`
 
 ### Database Location
+
 - Development: `data.db` in project root (bind-mounted in Docker)
 - Database is created automatically on first run
 - To reset database, delete `data.db` and restart server
 
 ### Environment Variables
+
 - `LOG_LEVEL` - Logging level (default: 'info')
 - `NODE_ENV` - Set to 'test' during testing
 - Config values (API keys, webhooks) stored in database, not env vars
