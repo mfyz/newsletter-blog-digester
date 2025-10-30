@@ -89,4 +89,101 @@ PostsAPITests('getOne should return 404 for non-existent post', async () => {
   assert.equal(mockReply._sent.error, 'Post not found');
 });
 
+// ========== Additional GET /api/posts filter tests ==========
+PostsAPITests('getAll should filter by search parameter', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+
+  db.createPost({ url: 'https://example.com/post1', title: 'JavaScript Tutorial', site_id: site.id, content: 'Learn JavaScript basics' });
+  db.createPost({ url: 'https://example.com/post2', title: 'Python Guide', site_id: site.id, content: 'Python programming tips' });
+  db.createPost({ url: 'https://example.com/post3', title: 'JavaScript Advanced', site_id: site.id, content: 'Advanced JS concepts' });
+
+  const result = await postsAPI.getAll({ query: { search: 'JavaScript' } }, mockReply);
+
+  assert.equal(result.length, 2);
+  assert.ok(result.every(post => post.title.includes('JavaScript') || post.content.includes('JavaScript')));
+});
+
+PostsAPITests('getAll should respect limit parameter', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+
+  // Create 5 posts
+  for (let i = 1; i <= 5; i++) {
+    db.createPost({ url: `https://example.com/post${i}`, title: `Post ${i}`, site_id: site.id });
+  }
+
+  const result = await postsAPI.getAll({ query: { limit: '3' } }, mockReply);
+
+  assert.equal(result.length, 3);
+});
+
+PostsAPITests('getAll should handle combined filters (site_id + search + limit)', async () => {
+  const site1 = db.createSite({ url: 'https://site1.com/rss', title: 'Site 1', type: 'rss' });
+  const site2 = db.createSite({ url: 'https://site2.com/rss', title: 'Site 2', type: 'rss' });
+
+  // Create posts for both sites
+  db.createPost({ url: 'https://site1.com/post1', title: 'React Tutorial', site_id: site1.id });
+  db.createPost({ url: 'https://site1.com/post2', title: 'React Advanced', site_id: site1.id });
+  db.createPost({ url: 'https://site1.com/post3', title: 'Vue Tutorial', site_id: site1.id });
+  db.createPost({ url: 'https://site2.com/post1', title: 'React Guide', site_id: site2.id });
+
+  const result = await postsAPI.getAll({
+    query: {
+      site_id: String(site1.id),
+      search: 'React',
+      limit: '10'
+    }
+  }, mockReply);
+
+  assert.equal(result.length, 2);
+  assert.ok(result.every(post => post.site_id === site1.id && post.title.includes('React')));
+});
+
+// ========== DELETE /api/posts/:id tests ==========
+PostsAPITests('remove should delete a post successfully', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({ url: 'https://example.com/post1', title: 'Test Post', site_id: site.id });
+
+  const result = await postsAPI.remove({ params: { id: String(post.id) } }, mockReply);
+
+  assert.equal(result.success, true);
+
+  // Verify post was deleted
+  const deletedPost = db.getPost(post.id);
+  assert.is(deletedPost, undefined);
+});
+
+PostsAPITests('remove should handle deletion of non-existent post', async () => {
+  // Try to delete non-existent post - deletePost doesn't throw error for non-existent IDs
+  const result = await postsAPI.remove({ params: { id: '999' } }, mockReply);
+
+  // Should still return success (deletePost doesn't fail for non-existent IDs)
+  assert.equal(result.success, true);
+});
+
+// ========== POST /api/posts/truncate tests ==========
+PostsAPITests('truncate should delete all posts', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+
+  // Create several posts
+  db.createPost({ url: 'https://example.com/post1', title: 'Post 1', site_id: site.id });
+  db.createPost({ url: 'https://example.com/post2', title: 'Post 2', site_id: site.id });
+  db.createPost({ url: 'https://example.com/post3', title: 'Post 3', site_id: site.id });
+
+  const result = await postsAPI.truncate({}, mockReply);
+
+  assert.equal(result.success, true);
+  assert.equal(result.deletedCount, 3);
+
+  // Verify all posts were deleted
+  const remainingPosts = db.getPosts({});
+  assert.equal(remainingPosts.length, 0);
+});
+
+PostsAPITests('truncate should return 0 count when no posts exist', async () => {
+  const result = await postsAPI.truncate({}, mockReply);
+
+  assert.equal(result.success, true);
+  assert.equal(result.deletedCount, 0);
+});
+
 PostsAPITests.run();
