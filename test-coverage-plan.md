@@ -14,13 +14,13 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 | Posts API          | 5 endpoints               | 3      | 60%      | 🟡 Moderate |
 | Config API         | 3 endpoints               | 3      | 100%     | ✅ Complete |
 | Logs API           | 1 endpoint                | 1      | 100%     | ✅ Complete |
-| Cron API           | 1 endpoint                | 0      | 0%       | 🔴 Critical |
+| Cron API           | 1 endpoint                | 1      | 100%     | ✅ Complete |
 | Database Functions | 25 functions              | 25     | 100%     | ✅ Complete |
 | Extractors         | 7 functions               | 6      | 86%      | ✅ Complete |
 | Cron Logic         | 4 functions               | 3      | 75%      | ✅ Complete |
 | Utilities          | 4 functions               | 4      | 100%     | ✅ Complete |
 
-**Overall Estimated Coverage: ~77%** (up from 20-30%)
+**Overall Estimated Coverage: ~79%** (up from 20-30%)
 
 ---
 
@@ -143,16 +143,21 @@ Current test coverage is **minimal (~20-30%)** and focuses only on basic happy p
 
 ### 5. Cron API (`src/server/api/cron.js`)
 
-**Coverage: 0/1 endpoint (0%)**
+**Coverage: 1/1 endpoint (100%)** ✅ **COMPLETED**
 
-#### ❌ NOT Tested:
+#### ✅ Currently Tested:
 
-**Missing Tests (1 endpoint):**
+- `POST /api/cron/run` - runNow() - 4 tests (triggers background check, immediate return, no active sites, concurrent calls)
 
-1. `POST /api/cron/run` - runNow()
-   - Triggers background job
-   - Returns immediate success response
-   - Handles errors gracefully
+#### Implementation Notes:
+
+- Created new test file: `src/server/__tests__/cron-api.test.js`
+- Added 4 test cases covering:
+  - Successful trigger of background check
+  - Immediate return without waiting for completion
+  - Handling empty database (no active sites)
+  - Multiple concurrent calls
+- All 122 tests passing (including 4 cron API tests)
 
 ---
 
