@@ -31,8 +31,8 @@ class Toast {
       script.onload = () => {
         // Initialize Notyf with custom options
         this.notyf = new window.Notyf({
-          duration: 4000,
-          position: { x: 'right', y: 'top' },
+          duration: 6000,
+          position: { x: 'right', y: 'bottom' },
           dismissible: true,
           ripple: true,
         });

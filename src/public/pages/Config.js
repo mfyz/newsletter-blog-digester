@@ -1,5 +1,5 @@
 import { h } from 'https://esm.sh/preact@10.19.3';
-import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
+import { useState, useEffect, useRef } from 'https://esm.sh/preact@10.19.3/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
 import Button from '../components/Button.js';
 import Input from '../components/Input.js';
@@ -14,10 +14,27 @@ export default function Config() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const summarizationTextareaRef = useRef(null);
+  const htmlExtractTextareaRef = useRef(null);
+
+  // Auto-resize textarea function
+  const autoResizeTextarea = (textarea) => {
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+  };
 
   useEffect(() => {
     loadConfig();
   }, []);
+
+  // Auto-resize textareas when config is loaded
+  useEffect(() => {
+    if (!loading) {
+      autoResizeTextarea(summarizationTextareaRef.current);
+      autoResizeTextarea(htmlExtractTextareaRef.current);
+    }
+  }, [loading, config.prompt_summarization, config.prompt_html_extract_base]);
 
   const loadConfig = async () => {
     try {
@@ -230,10 +247,14 @@ export default function Config() {
                 Summarization Prompt
               </label>
               <textarea
+                ref=${summarizationTextareaRef}
                 value=${config.prompt_summarization || ''}
-                onInput=${e => updateField('prompt_summarization', e.target.value)}
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows="4"
+                onInput=${e => {
+                  updateField('prompt_summarization', e.target.value);
+                  autoResizeTextarea(e.target);
+                }}
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
+                rows="1"
                 placeholder="System prompt for summarizing post content..."
               ></textarea>
             </div>
@@ -243,10 +264,14 @@ export default function Config() {
                 HTML Extraction Base Prompt
               </label>
               <textarea
+                ref=${htmlExtractTextareaRef}
                 value=${config.prompt_html_extract_base || ''}
-                onInput=${e => updateField('prompt_html_extract_base', e.target.value)}
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows="6"
+                onInput=${e => {
+                  updateField('prompt_html_extract_base', e.target.value);
+                  autoResizeTextarea(e.target);
+                }}
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
+                rows="1"
                 placeholder="Base system prompt for extracting posts from HTML..."
               ></textarea>
             </div>
