@@ -40,6 +40,43 @@ export default function Posts() {
     return `${Math.floor(seconds / 2592000)} months ago`;
   };
 
+  const formatDateDivider = (date) => {
+    if (!date) return 'Unknown Date';
+
+    const parsedDate = new Date(date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Check if today
+    if (parsedDate.toDateString() === today.toDateString()) {
+      return 'Today';
+    }
+
+    // Check if yesterday
+    if (parsedDate.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    }
+
+    // Check if within last week
+    const daysAgo = Math.floor((today - parsedDate) / (1000 * 60 * 60 * 24));
+    if (daysAgo < 7) {
+      return parsedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+
+    // Otherwise show full date
+    return parsedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const getPostDate = (post) => {
+    return post.date || post.created_at;
+  };
+
+  const getDateKey = (date) => {
+    if (!date) return 'unknown';
+    return new Date(date).toDateString();
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -118,6 +155,12 @@ export default function Posts() {
   ];
 
   return html`
+    <style>
+      .summary-content ul { list-style-type: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+      .summary-content ol { list-style-type: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
+      .summary-content li { margin: 0.25rem 0; }
+      .summary-content p { margin: 0.5rem 0; }
+    </style>
     <div class="space-y-4">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
@@ -130,18 +173,18 @@ export default function Posts() {
       <!-- Filters -->
       <div class="bg-white rounded-lg shadow p-4 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <${Select}
-            label="Filter by Site"
-            value=${filter.site}
-            onChange=${e => setFilter({ ...filter, site: e.target.value })}
-            options=${siteOptions}
-          />
-
           <${Input}
             label="Search"
             placeholder="Search by title..."
             value=${filter.search}
             onInput=${e => setFilter({ ...filter, search: e.target.value })}
+          />
+
+          <${Select}
+            label="Filter by Site"
+            value=${filter.site}
+            onChange=${e => setFilter({ ...filter, site: e.target.value })}
+            options=${siteOptions}
           />
         </div>
 
@@ -167,48 +210,68 @@ export default function Posts() {
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-7/12">
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Title
-                </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-3/12">
-                  Site
-                </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/12">
-                  Published
                 </th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              ${filteredPosts.map(post => {
+              ${filteredPosts.map((post, index) => {
                 const site = sites.find(s => s.id === post.site_id);
                 const isExpanded = expandedPost === post.id;
+                const postDate = getPostDate(post);
+                const currentDateKey = getDateKey(postDate);
+                const prevPost = index > 0 ? filteredPosts[index - 1] : null;
+                const prevDateKey = prevPost ? getDateKey(getPostDate(prevPost)) : null;
+                const showDateDivider = currentDateKey !== prevDateKey;
+
                 return html`
+                  ${showDateDivider && html`
+                    <tr key="date-${currentDateKey}" class="bg-gray-50">
+                      <td class="px-4 py-1.5">
+                        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          ${formatDateDivider(postDate)}
+                        </div>
+                      </td>
+                    </tr>
+                  `}
                   <tr key=${post.id} class="hover:bg-gray-50 transition-colors cursor-pointer" onClick=${() => setExpandedPost(isExpanded ? null : post.id)}>
                     <td class="px-4 py-3">
-                      <div class="flex items-center gap-2">
-                        <span class="text-gray-400">${isExpanded ? '▼' : '▶'}</span>
-                        <div class="text-sm font-medium text-gray-900">
-                          ${post.title}
+                      <div class="flex items-start gap-2">
+                        <span class="text-gray-400 mt-1">${isExpanded ? '▼' : '▶'}</span>
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center justify-between gap-2 mb-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                              <div class="text-lg font-bold text-gray-900">
+                                ${post.title}
+                              </div>
+                              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                ${site?.title || 'Unknown'}
+                              </span>
+                              ${post.sent_to_slack && html`
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                  ✓
+                                </span>
+                              `}
+                            </div>
+                            <div class="text-xs text-gray-500 whitespace-nowrap">
+                              ${timeAgo(post.date || post.created_at)}
+                            </div>
+                          </div>
+                          ${post.summary && !isExpanded && html`
+                            <div
+                              class="text-xs text-gray-500 mt-1 summary-content"
+                              style="white-space: pre-wrap;"
+                              dangerouslySetInnerHTML=${{ __html: snarkdown(post.summary) }}
+                            />
+                          `}
                         </div>
-                        ${post.sent_to_slack && html`
-                          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                            ✓
-                          </span>
-                        `}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">${site?.title || 'Unknown'}</div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-500">
-                        ${timeAgo(post.date || post.created_at)}
                       </div>
                     </td>
                   </tr>
                   ${isExpanded && html`
                     <tr key="${post.id}-expanded" class="bg-gray-50">
-                      <td colspan="3" class="px-4 py-4">
+                      <td class="px-4 py-4">
                         <div class="space-y-3">
                           <!-- URL -->
                           <div>
@@ -222,6 +285,17 @@ export default function Posts() {
                             </a>
                           </div>
 
+                          <!-- AI Summary -->
+                          ${post.summary && html`
+                            <div>
+                              <div class="text-xs font-medium text-gray-500 uppercase mb-1">AI Summary</div>
+                              <div
+                                class="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded p-4 summary-content"
+                                dangerouslySetInnerHTML=${{ __html: snarkdown(post.summary) }}
+                              />
+                            </div>
+                          `}
+
                           <!-- Content -->
                           ${post.content && html`
                             <div>
@@ -229,17 +303,6 @@ export default function Posts() {
                               <div
                                 class="text-sm text-gray-700 bg-white border border-gray-200 rounded p-4 max-h-96 overflow-y-auto"
                                 dangerouslySetInnerHTML=${{ __html: post.content }}
-                              />
-                            </div>
-                          `}
-
-                          <!-- Summary -->
-                          ${post.summary && html`
-                            <div>
-                              <div class="text-xs font-medium text-gray-500 uppercase mb-1">AI Summary</div>
-                              <div
-                                class="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded p-4 prose prose-sm max-w-none"
-                                dangerouslySetInnerHTML=${{ __html: snarkdown(post.summary) }}
                               />
                             </div>
                           `}
