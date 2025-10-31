@@ -195,28 +195,63 @@ export async function sendToSlack(posts, options = {}) {
   try {
     let payload;
 
-    // Single post: use blocks format
+    // Single post: single message with title, URL, and summary
     if (postsArray.length === 1) {
       const post = postsArray[0];
-      let messageText = `*<${post.url}|${post.title}>*`;
 
+      // Build message with URL first, then blockquote with title and summary
+      let messageText = post.url;
+
+      // Clean title: replace newlines with spaces and collapse multiple spaces
+      const cleanTitle = post.title.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+
+      // Add blockquote with bold title
+      messageText += `\n> *${cleanTitle}*`;
+
+      // Add summary in blockquote if exists
       if (post.summary) {
         const slackFormattedSummary = convertToSlackMrkdwn(post.summary);
-        messageText += `\n\n${slackFormattedSummary}`;
+        // Format as blockquote by adding > prefix to each line
+        const blockquoteSummary = slackFormattedSummary
+          .split('\n')
+          .map((line) => `> ${line}`)
+          .join('\n');
+        messageText += `\n${blockquoteSummary}`;
       }
 
-      payload = {
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: messageText,
-            },
-          },
-        ],
-        text: `${post.title} - ${post.url}`,
+      const payload = {
+        text: messageText,
+        mrkdwn: true,
+        unfurl_links: true,
+        unfurl_media: true,
       };
+
+      // Add channel if specified
+      if (channel) {
+        payload.channel = channel.startsWith('#') ? channel : `#${channel}`;
+      }
+
+      // Add bot name if provided
+      if (botName && botName.trim()) {
+        payload.username = botName.trim();
+      }
+
+      // Add bot icon if provided
+      if (botIcon && botIcon.trim()) {
+        payload.icon_emoji = botIcon.trim();
+      }
+
+      logger.info('Sending post to Slack', {
+        channel: channel || 'default',
+        hasUsername: !!payload.username,
+        hasIconEmoji: !!payload.icon_emoji,
+      });
+
+      // Send message
+      await axios.post(webhookUrl, payload);
+
+      logger.info('Successfully sent post to Slack');
+      return true;
     } else {
       // Multiple posts: use digest format
       const postsBySite = {};
@@ -247,37 +282,37 @@ export async function sendToSlack(posts, options = {}) {
         text: message,
         mrkdwn: true,
       };
+
+      // Add channel if specified
+      if (channel) {
+        payload.channel = channel.startsWith('#') ? channel : `#${channel}`;
+      }
+
+      // Add bot name if provided
+      if (botName && botName.trim()) {
+        payload.username = botName.trim();
+      }
+
+      // Add bot icon if provided (emoji format like :robot_face:)
+      if (botIcon && botIcon.trim()) {
+        payload.icon_emoji = botIcon.trim();
+      }
+
+      logger.info('Sending digest to Slack', {
+        postCount: postsArray.length,
+        channel: channel || 'default',
+        hasUsername: !!payload.username,
+        hasIconEmoji: !!payload.icon_emoji,
+        username: payload.username,
+        icon_emoji: payload.icon_emoji,
+      });
+
+      // Send to Slack
+      await axios.post(webhookUrl, payload);
+
+      logger.info(`Successfully sent ${postsArray.length} post(s) digest to Slack`);
+      return true;
     }
-
-    // Add channel if specified
-    if (channel) {
-      payload.channel = channel.startsWith('#') ? channel : `#${channel}`;
-    }
-
-    // Add bot name if provided
-    if (botName && botName.trim()) {
-      payload.username = botName.trim();
-    }
-
-    // Add bot icon if provided (emoji format like :robot_face:)
-    if (botIcon && botIcon.trim()) {
-      payload.icon_emoji = botIcon.trim();
-    }
-
-    logger.info('Sending to Slack', {
-      postCount: postsArray.length,
-      channel: channel || 'default',
-      hasUsername: !!payload.username,
-      hasIconEmoji: !!payload.icon_emoji,
-      username: payload.username,
-      icon_emoji: payload.icon_emoji,
-    });
-
-    // Send to Slack
-    await axios.post(webhookUrl, payload);
-
-    logger.info(`Successfully sent ${postsArray.length} post(s) to Slack`);
-    return true;
   } catch (error) {
     logger.error('Failed to send to Slack', {
       error: error.message,

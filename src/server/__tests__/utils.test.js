@@ -161,16 +161,14 @@ UtilsTests('sendPostToSlack() - should send post successfully', async () => {
   assert.is(axiosStub.firstCall.args[0], webhookUrl);
 
   const payload = axiosStub.firstCall.args[1];
-  // Check that blocks are used with proper structure
-  assert.ok(payload.blocks);
-  assert.is(payload.blocks.length, 1); // Single combined block
-  assert.is(payload.blocks[0].type, 'section');
-  assert.is(payload.blocks[0].text.type, 'mrkdwn');
-  assert.ok(payload.blocks[0].text.text.includes(post.title));
-  assert.ok(payload.blocks[0].text.text.includes(post.url));
-  assert.ok(payload.blocks[0].text.text.includes(post.summary));
-  // Check fallback text
+  // Check that text property is used with proper formatting
+  assert.ok(payload.text);
+  assert.is(payload.mrkdwn, true);
+  assert.is(payload.unfurl_links, true);
+  assert.is(payload.unfurl_media, true);
   assert.ok(payload.text.includes(post.title));
+  assert.ok(payload.text.includes(post.url));
+  assert.ok(payload.text.includes(post.summary));
 });
 
 UtilsTests('sendPostToSlack() - should format message correctly without summary', async () => {
@@ -187,10 +185,10 @@ UtilsTests('sendPostToSlack() - should format message correctly without summary'
   await sendPostToSlack(post, webhookUrl);
 
   const payload = axiosStub.firstCall.args[1];
-  // Should only have one block (title) when no summary
-  assert.ok(payload.blocks);
-  assert.is(payload.blocks.length, 1);
-  assert.ok(payload.blocks[0].text.text.includes(`*<${post.url}|${post.title}>*`));
+  // Should have text with URL and title in blockquote when no summary
+  assert.ok(payload.text);
+  assert.ok(payload.text.includes(post.url));
+  assert.ok(payload.text.includes(`> *${post.title}*`));
 });
 
 UtilsTests('sendPostToSlack() - should throw error if webhook URL not provided', async () => {
@@ -305,7 +303,7 @@ UtilsTests('sendPostToSlack() - should convert markdown to Slack mrkdwn format',
   await sendPostToSlack(post, webhookUrl);
 
   const payload = axiosStub.firstCall.args[1];
-  const messageText = payload.blocks[0].text.text;
+  const messageText = payload.text;
 
   // Check markdown conversions
   assert.ok(messageText.includes('*Bold text*')); // **bold** -> *bold*

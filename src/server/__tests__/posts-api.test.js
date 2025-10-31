@@ -295,14 +295,14 @@ PostsAPITests('notify should send post to Slack successfully', async () => {
   assert.ok(axiosStub.calledOnce);
   assert.equal(axiosStub.firstCall.args[0], 'https://hooks.slack.com/test');
   const payload = axiosStub.firstCall.args[1];
-  // Check blocks structure
-  assert.ok(payload.blocks);
-  assert.equal(payload.blocks.length, 1); // Single combined block
-  assert.ok(payload.blocks[0].text.text.includes(post.title));
-  assert.ok(payload.blocks[0].text.text.includes(post.url));
-  assert.ok(payload.blocks[0].text.text.includes(post.summary));
-  // Check fallback text
+  // Check text structure
+  assert.ok(payload.text);
+  assert.equal(payload.mrkdwn, true);
+  assert.equal(payload.unfurl_links, true);
+  assert.equal(payload.unfurl_media, true);
   assert.ok(payload.text.includes(post.title));
+  assert.ok(payload.text.includes(post.url));
+  assert.ok(payload.text.includes(post.summary));
 
   // Verify post was marked as notified in database
   const updatedPost = db.getPost(post.id);
