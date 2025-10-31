@@ -1,38 +1,64 @@
-# Newsletter Blog Digester
+# Newsletter & Blog Digester
 
-A Fastify application that periodically checks websites/blogs, summarizes new
+A small application that periodically checks websites/blogs, summarizes new
 posts using OpenAI, and sends digests to Slack.
 
-## Phase 1: Core Setup ✅ COMPLETE
+Here is what it looks like:
 
-### What's Implemented
-
-- ✅ **Package.json** with all dependencies
-- ✅ **Testing Framework**: uvu + sinon + c8
-- ✅ **Code Formatting**: dprint (Rust-based, blazing fast)
-- ✅ **Pre-commit Hooks**: Husky (runs format + tests)
-- ✅ **Fastify Server**: Basic server with health check endpoint
-- ✅ **SQLite Database**: Schema initialization with all tables
-- ✅ **Docker Compose**: Live reload development environment
-- ✅ **Basic Tests**: Database and utilities tests
-
-### Project Structure
-
-```
-newsletter-blog-digester/
-├── src/
-│   ├── server/
-│   │   ├── server.js          # Main Fastify server
-│   │   ├── db.js              # Database initialization & queries
-│   │   ├── utils.js           # Logger & utilities
-│   │   └── __tests__/         # Test files
-│   └── public/
-│       └── index.html         # Frontend placeholder
-├── docker-compose.yml         # Docker configuration
-├── package.json               # Dependencies & scripts
-├── dprint.json                # Formatting configuration
-└── .husky/                    # Git hooks
-```
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <a href="screenshots/1-posts.jpg">
+        <img src="screenshots/1-posts.jpg" width="100%" alt="Posts View">
+      </a>
+      <br>
+      <strong>Posts View</strong><br>
+      Browse and manage all extracted posts with expandable cards showing summaries and content
+    </td>
+    <td width="33%" align="center">
+      <a href="screenshots/2-post-detail-and-actions.jpg">
+        <img src="screenshots/2-post-detail-and-actions.jpg" width="100%" alt="Post Details">
+      </a>
+      <br>
+      <strong>Post Details & Actions</strong><br>
+      View full post details, mark as read/unread, flag posts, and delete individual items
+    </td>
+    <td width="33%" align="center">
+      <a href="screenshots/3-sites.jpg">
+        <img src="screenshots/3-sites.jpg" width="100%" alt="Sites Management">
+      </a>
+      <br>
+      <strong>Sites Management</strong><br>
+      Manage RSS feeds and websites with support for multiple extraction methods
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center">
+      <a href="screenshots/4-site-configuration.jpg">
+        <img src="screenshots/4-site-configuration.jpg" width="100%" alt="Site Configuration">
+      </a>
+      <br>
+      <strong>Site Configuration</strong><br>
+      Configure extraction rules with CSS selectors or LLM-based extraction for complex sites
+    </td>
+    <td width="33%" align="center">
+      <a href="screenshots/5-settings.jpg">
+        <img src="screenshots/5-settings.jpg" width="100%" alt="Settings">
+      </a>
+      <br>
+      <strong>Settings</strong><br>
+      Configure OpenAI API, Slack notifications, cron schedule, and customization options
+    </td>
+    <td width="33%" align="center">
+      <a href="screenshots/6-logs.jpg">
+        <img src="screenshots/6-logs.jpg" width="100%" alt="Application Logs">
+      </a>
+      <br>
+      <strong>Application Logs</strong><br>
+      Monitor system activity with filterable logs showing extraction jobs and errors
+    </td>
+  </tr>
+</table>
 
 ## Quick Start
 
@@ -139,28 +165,6 @@ Automatically runs before each commit:
 
 To bypass (use sparingly): `git commit --no-verify`
 
-## Health Check
-
-Endpoint: `GET /health`
-
-Returns:
-
-```json
-{
-  "status": "ok",
-  "timestamp": "2025-10-28T..."
-}
-```
-
-## Next Steps (Phase 2)
-
-- [ ] API endpoints for sites, posts, config, logs
-- [ ] Cron job scheduler
-- [ ] RSS/HTML extraction functions
-- [ ] OpenAI integration for summarization
-- [ ] Slack webhook integration
-- [ ] Frontend UI with Preact + HTM
-
 ## Tech Stack
 
 - **Runtime**: Node.js 20
@@ -170,13 +174,7 @@ Returns:
 - **Formatting**: dprint
 - **Git Hooks**: Husky
 - **Container**: Docker Compose
-- **Frontend**: Preact + HTM (coming in Phase 2)
-
-## Project Status
-
-✅ **Phase 1 Complete** - Core setup finished, ready for Phase 2
-
-See `plan.md` for detailed implementation plan.
+- **Frontend**: Preact + HTM
 
 ## License
 

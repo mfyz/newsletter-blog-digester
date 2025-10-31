@@ -58,11 +58,11 @@ export default function App() {
 
   return html`
     <div class="min-h-screen bg-gray-50">
-      <header class="bg-white shadow">
-        <div class="max-w-7xl mx-auto px-4 py-6">
+      <header class="bg-white shadow fixed top-0 left-0 right-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3">
           <div class="flex items-center justify-between gap-6">
             <h1 class="text-3xl font-bold text-gray-900 whitespace-nowrap">
-              Newsletter Blog Digester
+              Newsletter & Blog Digester
             </h1>
 
             <div class="flex items-center gap-4">
@@ -95,7 +95,7 @@ export default function App() {
         </div>
       </header>
 
-      <main class="max-w-7xl mx-auto px-4 py-8">
+      <main class="max-w-7xl mx-auto px-4 py-8 pt-24">
         ${currentTab === 'sites' && html`<${Sites} onNavigate=${navigateToTab} />`}
         ${currentTab === 'posts' && html`<${Posts} />`}
         ${currentTab === 'site-edit' && html`<${SiteEdit} key=${window.location.hash} onNavigate=${navigateToTab} />`}
