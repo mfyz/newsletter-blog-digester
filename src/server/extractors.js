@@ -8,6 +8,45 @@ import { OpenAIClient } from './openai-client.js';
 const rssParser = new Parser();
 
 /**
+ * Transform/clean post data before processing
+ * - Remove reading time from titles (e.g., "(7 minute read)")
+ * - Clean URLs by removing tracking parameters
+ */
+export function transformPost(post) {
+  // Clean title: remove reading time patterns like "(7 minute read)", "(3 min read)", etc.
+  let cleanTitle = post.title;
+  if (cleanTitle) {
+    // Match patterns like "(X minute read)", "(X min read)", "(X-minute read)"
+    cleanTitle = cleanTitle.replace(/\s*\(\d+[\s-]?min(ute)?s?\s+read\)/gi, '').trim();
+  }
+
+  // Clean URL: remove tracking and unwanted query parameters
+  let cleanUrl = post.url;
+  if (cleanUrl) {
+    try {
+      const urlObj = new URL(cleanUrl);
+      const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'reflink', 'mod'];
+
+      // Remove unwanted params
+      paramsToRemove.forEach(param => {
+        urlObj.searchParams.delete(param);
+      });
+
+      cleanUrl = urlObj.toString();
+    } catch (e) {
+      // If URL parsing fails, keep original
+      logger.warn('Failed to parse URL for cleaning', { url: post.url, error: e.message });
+    }
+  }
+
+  return {
+    ...post,
+    title: cleanTitle,
+    url: cleanUrl
+  };
+}
+
+/**
  * Clean HTML by removing script and style tags with their contents
  */
 export function cleanHTML(html) {
@@ -96,7 +135,8 @@ export async function fetchRSSFeed(url) {
 
     logger.info(`RSS feed ${url}: ${allPosts.length} total posts, ${recentPosts.length} from last 7 days`);
 
-    return recentPosts;
+    // Transform posts (clean titles and URLs)
+    return recentPosts.map(transformPost);
   } catch (error) {
     logger.error(`Failed to parse RSS feed: ${url}`, { error: error.message });
     throw error;
@@ -222,7 +262,8 @@ export async function fetchHTMLWithRules(site) {
       });
     });
 
-    return posts;
+    // Transform posts (clean titles and URLs)
+    return posts.map(transformPost);
   } catch (error) {
     logger.error(`Failed to fetch HTML with rules: ${site.url}`, {
       error: error.message,
@@ -373,7 +414,8 @@ export async function fetchHTMLWithLLM(site) {
       });
     }
 
-    return posts;
+    // Transform posts (clean titles and URLs)
+    return posts.map(transformPost);
   } catch (error) {
     logger.error(`LLM extraction failed for site ${site.title}`, {
       error: error.message,

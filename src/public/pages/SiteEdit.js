@@ -129,6 +129,7 @@ export default function SiteEdit({ onNavigate }) {
   };
 
   // Parse extraction rules - returns array of rule objects
+  // IMPORTANT: Expects array format only - no backward compatibility fallback
   const getRules = () => {
     if (!formData.extraction_rules) return [];
     try {
@@ -141,21 +142,17 @@ export default function SiteEdit({ onNavigate }) {
         rules = JSON.parse(rules);
       }
 
-      // Convert old single-object format to array format
-      if (!Array.isArray(rules) && typeof rules === 'object' && rules.postContainer) {
-        return [{
-          name: 'Default',
-          container: rules.postContainer,
-          title: rules.title,
-          url: rules.link || rules.url,
-          date: rules.date || '',
-          content: rules.content || ''
-        }];
+      // Must be an array - if not, return empty to force user to fix
+      if (!Array.isArray(rules)) {
+        console.error('extraction_rules must be an array, got:', typeof rules, rules);
+        toast.error('Invalid extraction rules format. Expected array. Please re-configure this site.');
+        return [];
       }
 
-      // Ensure we return an array
-      return Array.isArray(rules) ? rules : [];
-    } catch {
+      return rules;
+    } catch (e) {
+      console.error('Failed to parse extraction_rules:', e);
+      toast.error('Failed to parse extraction rules');
       return [];
     }
   };

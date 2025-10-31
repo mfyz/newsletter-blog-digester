@@ -208,14 +208,7 @@ export default function Posts() {
         </div>
       ` : html`
         <div class="bg-white rounded-lg shadow overflow-hidden">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Title
-                </th>
-              </tr>
-            </thead>
+          <table class="min-w-full">
             <tbody class="bg-white divide-y divide-gray-200">
               ${filteredPosts.map((post, index) => {
                 const site = sites.find(s => s.id === post.site_id);
@@ -228,9 +221,9 @@ export default function Posts() {
 
                 return html`
                   ${showDateDivider && html`
-                    <tr key="date-${currentDateKey}" class="bg-gray-50">
-                      <td class="px-4 py-1.5">
-                        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <tr key="date-${currentDateKey}" class="bg-white border-none">
+                      <td class="px-4 pb-2" style="${index > 0 ? 'padding-top: 50px' : 'padding-top: 16px'}">
+                        <div class="text-3xl font-light text-gray-700">
                           ${formatDateDivider(postDate)}
                         </div>
                       </td>

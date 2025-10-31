@@ -1073,4 +1073,150 @@ ExtractorTests('sendToSlack() - EDGE: should handle very large post arrays', asy
   assert.ok(callArgs.text.includes('100 new posts'));
 });
 
+// ========== transformPost() Tests ==========
+ExtractorTests('transformPost() - should remove reading time from title', () => {
+  const post = {
+    title: 'An Alzheimer\'s pill appears to protect (7 minute read)',
+    url: 'https://example.com/test',
+    content: 'Content',
+  };
+
+  const transformed = extractors.transformPost(post);
+
+  assert.is(transformed.title, 'An Alzheimer\'s pill appears to protect');
+  assert.is(transformed.url, post.url);
+});
+
+ExtractorTests('transformPost() - should handle various reading time formats', () => {
+  const tests = [
+    { input: 'Title (5 minute read)', expected: 'Title' },
+    { input: 'Title (10 min read)', expected: 'Title' },
+    { input: 'Title (3-minute read)', expected: 'Title' },
+    { input: 'Title (15 minutes read)', expected: 'Title' },
+    { input: 'Title (1 min read)', expected: 'Title' },
+  ];
+
+  tests.forEach(({ input, expected }) => {
+    const result = extractors.transformPost({ title: input, url: 'https://example.com' });
+    assert.is(result.title, expected, `Failed for input: ${input}`);
+  });
+});
+
+ExtractorTests('transformPost() - should remove UTM parameters from URL', () => {
+  const post = {
+    title: 'Test Post',
+    url: 'https://example.com/article?utm_source=newsletter&utm_medium=email&utm_campaign=weekly',
+    content: 'Content',
+  };
+
+  const transformed = extractors.transformPost(post);
+
+  assert.is(transformed.url, 'https://example.com/article');
+  assert.not.match(transformed.url, /utm_/);
+});
+
+ExtractorTests('transformPost() - should remove ref, reflink, mod parameters', () => {
+  const post = {
+    title: 'Test Post',
+    url: 'https://example.com/article?ref=homepage&reflink=share&mod=article_inline',
+    content: 'Content',
+  };
+
+  const transformed = extractors.transformPost(post);
+
+  assert.is(transformed.url, 'https://example.com/article');
+  assert.not.match(transformed.url, /ref=/);
+  assert.not.match(transformed.url, /reflink=/);
+  assert.not.match(transformed.url, /mod=/);
+});
+
+ExtractorTests('transformPost() - should keep other query parameters', () => {
+  const post = {
+    title: 'Test Post',
+    url: 'https://example.com/article?id=123&utm_source=newsletter&category=tech',
+    content: 'Content',
+  };
+
+  const transformed = extractors.transformPost(post);
+
+  assert.match(transformed.url, /id=123/);
+  assert.match(transformed.url, /category=tech/);
+  assert.not.match(transformed.url, /utm_source/);
+});
+
+ExtractorTests('transformPost() - should handle URL without query params', () => {
+  const post = {
+    title: 'Test Post (5 minute read)',
+    url: 'https://example.com/article',
+    content: 'Content',
+  };
+
+  const transformed = extractors.transformPost(post);
+
+  assert.is(transformed.url, 'https://example.com/article');
+  assert.is(transformed.title, 'Test Post');
+});
+
+ExtractorTests('transformPost() - should handle both title and URL cleaning together', () => {
+  const post = {
+    title: 'Nvidia Becomes First $5 Trillion Company (5 minute read)',
+    url: 'https://example.com/article?utm_source=twitter&ref=social&id=abc123',
+    content: 'Content about Nvidia',
+  };
+
+  const transformed = extractors.transformPost(post);
+
+  assert.is(transformed.title, 'Nvidia Becomes First $5 Trillion Company');
+  assert.is(transformed.url, 'https://example.com/article?id=abc123');
+});
+
+ExtractorTests('transformPost() - should handle invalid URL gracefully', () => {
+  const post = {
+    title: 'Test Post (3 min read)',
+    url: 'not-a-valid-url',
+    content: 'Content',
+  };
+
+  const transformed = extractors.transformPost(post);
+
+  assert.is(transformed.title, 'Test Post');
+  assert.is(transformed.url, 'not-a-valid-url'); // Keeps original if invalid
+});
+
+ExtractorTests('transformPost() - should preserve all other post fields', () => {
+  const post = {
+    title: 'Test Post (7 minute read)',
+    url: 'https://example.com/test?utm_source=feed',
+    content: 'Post content here',
+    date: '2025-01-01T00:00:00Z',
+    summary: 'Post summary',
+    customField: 'custom value',
+  };
+
+  const transformed = extractors.transformPost(post);
+
+  assert.is(transformed.content, post.content);
+  assert.is(transformed.date, post.date);
+  assert.is(transformed.summary, post.summary);
+  assert.is(transformed.customField, post.customField);
+});
+
+ExtractorTests('transformPost() - should handle empty/null title', () => {
+  const post1 = {
+    title: '',
+    url: 'https://example.com/test',
+  };
+
+  const post2 = {
+    title: null,
+    url: 'https://example.com/test',
+  };
+
+  const result1 = extractors.transformPost(post1);
+  const result2 = extractors.transformPost(post2);
+
+  assert.is(result1.title, '');
+  assert.is(result2.title, null);
+});
+
 ExtractorTests.run();

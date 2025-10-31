@@ -73,7 +73,6 @@ npm run format:check
 npm run pre-commit
 ```
 
-
 ## Architecture
 
 ### Backend Structure
