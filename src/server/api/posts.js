@@ -117,3 +117,30 @@ export async function fetchAndSummarize(req, reply) {
     return reply.code(500).send({ error: `Failed to fetch and summarize: ${error.message}` });
   }
 }
+
+/**
+ * PUT /api/posts/:id/flag - Toggle flagged status for a post
+ */
+export async function toggleFlag(req, reply) {
+  try {
+    const postId = req.params.id;
+    const { flagged } = req.body;
+
+    if (flagged !== 0 && flagged !== 1) {
+      return reply.code(400).send({ error: 'Flagged must be 0 or 1' });
+    }
+
+    const post = db.getPost(postId);
+    if (!post) {
+      return reply.code(404).send({ error: 'Post not found' });
+    }
+
+    db.updatePost(postId, { flagged });
+    logger.info('Post flagged status updated', { postId, flagged });
+
+    return { success: true, flagged };
+  } catch (error) {
+    logger.error('Failed to update post flagged status', { error: error.message });
+    return reply.code(500).send({ error: 'Failed to update flagged status' });
+  }
+}

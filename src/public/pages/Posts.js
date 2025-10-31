@@ -13,7 +13,7 @@ const html = htm.bind(h);
 export default function Posts() {
   const [posts, setPosts] = useState([]);
   const [sites, setSites] = useState([]);
-  const [filter, setFilter] = useState({ site: 'all', search: '' });
+  const [filter, setFilter] = useState({ site: 'all', search: '', flaggedOnly: false });
   const [loading, setLoading] = useState(true);
   const [expandedPost, setExpandedPost] = useState(null);
   const [fetchingContent, setFetchingContent] = useState({});
@@ -153,9 +153,34 @@ export default function Posts() {
     }
   };
 
+  const handleToggleFlag = async (postId, currentFlagged, e) => {
+    e.stopPropagation(); // Prevent row expansion
+    const newFlagged = currentFlagged ? 0 : 1;
+
+    try {
+      const response = await fetch(`/api/posts/${postId}/flag`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flagged: newFlagged })
+      });
+
+      if (response.ok) {
+        // Update the post in state
+        setPosts(posts.map(p => p.id === postId ? { ...p, flagged: newFlagged } : p));
+      } else {
+        const data = await response.json();
+        toast.error('Failed to update flag: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to toggle flag:', error);
+      toast.error('Failed to update flag');
+    }
+  };
+
   const filteredPosts = posts.filter(post => {
     if (filter.site !== 'all' && post.site_id !== parseInt(filter.site)) return false;
     if (filter.search && !post.title.toLowerCase().includes(filter.search.toLowerCase())) return false;
+    if (filter.flaggedOnly && !post.flagged) return false;
     return true;
   });
 
@@ -190,30 +215,44 @@ export default function Posts() {
 
       <!-- Filters -->
       <div class="bg-white rounded-lg shadow p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <${Input}
-            label="Search"
-            placeholder="Search by title..."
-            value=${filter.search}
-            onInput=${e => setFilter({ ...filter, search: e.target.value })}
-          />
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="flex-1 min-w-[200px]">
+            <input
+              type="text"
+              placeholder="Search by title..."
+              value=${filter.search}
+              onInput=${e => setFilter({ ...filter, search: e.target.value })}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-          <${Select}
-            label="Filter by Site"
-            value=${filter.site}
-            onChange=${e => setFilter({ ...filter, site: e.target.value })}
-            options=${siteOptions}
-          />
-        </div>
+          <div class="flex-1 min-w-[200px]">
+            <select
+              value=${filter.site}
+              onChange=${e => setFilter({ ...filter, site: e.target.value })}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              ${siteOptions.map(opt => html`
+                <option key=${opt.value} value=${opt.value}>
+                  ${opt.label}
+                </option>
+              `)}
+            </select>
+          </div>
 
-        ${(filter.site !== 'all' || filter.search) && html`
           <button
-            class="mt-2 text-sm text-blue-600 hover:text-blue-800"
-            onClick=${() => setFilter({ site: 'all', search: '' })}
+            onClick=${() => setFilter({ ...filter, flaggedOnly: !filter.flaggedOnly })}
+            class="flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${
+              filter.flaggedOnly
+                ? 'bg-orange-500 text-white hover:bg-orange-600'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }"
+            title="${filter.flaggedOnly ? 'Show all posts' : 'Show only flagged posts'}"
           >
-            Clear Filters
+            <span class="text-lg">⭐</span>
+            <span class="text-sm">${filter.flaggedOnly ? 'Flagged Only' : 'Show Flagged'}</span>
           </button>
-        `}
+        </div>
       </div>
 
       <!-- Posts Table -->
@@ -246,13 +285,21 @@ export default function Posts() {
                       </td>
                     </tr>
                   `}
-                  <tr key=${post.id} class="hover:bg-gray-50 transition-colors cursor-pointer" onClick=${() => setExpandedPost(isExpanded ? null : post.id)}>
+                  <tr key=${post.id} class="${post.flagged ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50'} transition-colors cursor-pointer" onClick=${() => setExpandedPost(isExpanded ? null : post.id)}>
                     <td class="px-4 py-3">
                       <div class="flex items-start gap-2">
                         <span class="text-gray-400 mt-1">${isExpanded ? '▼' : '▶'}</span>
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center justify-between gap-2 mb-1">
                             <div class="flex items-center gap-2 flex-wrap">
+                              <button
+                                onClick=${(e) => handleToggleFlag(post.id, post.flagged, e)}
+                                class="text-2xl hover:scale-110 transition-transform"
+                                style="${post.flagged ? '' : 'filter: grayscale(1) opacity(0.5);'}"
+                                title="${post.flagged ? 'Unflag post' : 'Flag post'}"
+                              >
+                                ⭐
+                              </button>
                               <div class="text-lg font-bold text-gray-900">
                                 ${post.title}
                               </div>
@@ -265,8 +312,11 @@ export default function Posts() {
                                 </span>
                               `}
                             </div>
-                            <div class="text-xs text-gray-500 whitespace-nowrap">
-                              ${timeAgo(post.date || post.created_at)}
+                            <div class="flex items-center gap-2 text-xs text-gray-500 whitespace-nowrap">
+                              ${post.content_full && html`
+                                <span title="Full content fetched and available">📘</span>
+                              `}
+                              <span>${timeAgo(post.date || post.created_at)}</span>
                             </div>
                           </div>
                           ${post.summary && !isExpanded && html`
@@ -281,7 +331,7 @@ export default function Posts() {
                     </td>
                   </tr>
                   ${isExpanded && html`
-                    <tr key="${post.id}-expanded" class="bg-gray-50">
+                    <tr key="${post.id}-expanded" class="${post.flagged ? 'bg-orange-50' : 'bg-gray-50'}">
                       <td class="px-4 py-4">
                         <div class="space-y-3">
                           <!-- Metadata and Delete Button -->

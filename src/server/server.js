@@ -59,11 +59,12 @@ fastify.post('/api/sites/test-llm-extraction', sitesAPI.testLLMExtraction);
 fastify.post('/api/sites/fetch-html', sitesAPI.fetchHTML);
 fastify.post('/api/sites/generate-selectors', sitesAPI.generateSelectors);
 
-// Posts routes (5 endpoints)
+// Posts routes (6 endpoints)
 fastify.get('/api/posts', postsAPI.getAll);
 fastify.get('/api/posts/:id', postsAPI.getOne);
 fastify.post('/api/posts/truncate', postsAPI.truncate);
 fastify.post('/api/posts/:id/fetch-and-summarize', postsAPI.fetchAndSummarize);
+fastify.put('/api/posts/:id/flag', postsAPI.toggleFlag);
 fastify.delete('/api/posts/:id', postsAPI.remove);
 
 // Config routes (3 endpoints)

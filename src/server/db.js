@@ -135,6 +135,10 @@ function runMigrations() {
     // Column might already exist or table doesn't exist yet
   }
 
+  // This migration has been disabled as it was running on every restart and losing data
+  // The unique constraint change has already been applied to existing databases
+  // Keeping this here as a comment for historical reference
+  /*
   // Update posts table unique constraint to remove date
   // SQLite doesn't support DROP CONSTRAINT, so we need to recreate the table
   try {
@@ -182,6 +186,19 @@ function runMigrations() {
   } catch (error) {
     // Migration might fail if table structure is already correct
     // This is fine, we just skip it
+  }
+  */
+
+  // Add flagged column to posts table if it doesn't exist
+  try {
+    const columns = db.prepare('PRAGMA table_info(posts)').all();
+    const hasFlagged = columns.some(col => col.name === 'flagged');
+
+    if (!hasFlagged) {
+      db.exec('ALTER TABLE posts ADD COLUMN flagged INTEGER DEFAULT 0');
+    }
+  } catch (error) {
+    // Column might already exist or table doesn't exist yet
   }
 }
 
@@ -444,6 +461,10 @@ export function updatePost(id, data) {
   if (data.content_full !== undefined) {
     fields.push('content_full = ?');
     values.push(data.content_full);
+  }
+  if (data.flagged !== undefined) {
+    fields.push('flagged = ?');
+    values.push(data.flagged);
   }
 
   if (fields.length === 0) {
