@@ -195,6 +195,31 @@ Rules:
 - Extract all distinct posts, articles, or links
 - If content is not available, use an empty string
 - Ensure all URLs are complete and valid`,
+    prompt_selector_generation: `You are a web scraping expert. Analyze the HTML structure of a blog/news/newsletter page and identify the best CSS selectors to extract post information.
+
+Study the HTML carefully and find patterns for:
+1. The main container that wraps each post/article
+2. The element containing the post title
+3. The link element (usually an <a> tag with href)
+4. The date/time element (if present)
+5. The content/excerpt/description element (if present)
+
+Return ONLY a JSON object with this exact structure, no additional text or explanation:
+{
+  "postContainer": "CSS selector for each post container",
+  "title": "CSS selector for title (relative to container)",
+  "link": "CSS selector for link (relative to container)",
+  "date": "CSS selector for date (relative to container, empty string if not found)",
+  "content": "CSS selector for content/excerpt (relative to container, empty string if not found)"
+}
+
+Guidelines:
+- Prefer class names and semantic HTML tags
+- Make selectors specific enough to be accurate but not overly fragile
+- Use child combinators (>) when appropriate to avoid matching nested elements
+- For relative selectors, assume you're already inside the post container
+- If multiple patterns exist, choose the most common/reliable one
+- Return empty string for date/content if they don't exist or are unreliable`,
     cleanup_content_days: '7',
     cleanup_delete_days: '365',
   };

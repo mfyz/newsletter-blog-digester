@@ -29,7 +29,9 @@ export async function create(req, reply) {
       url,
       title,
       type: type || 'rss',
-      extraction_rules: extraction_rules ? JSON.stringify(extraction_rules) : null,
+      extraction_rules: extraction_rules
+        ? (typeof extraction_rules === 'string' ? extraction_rules : JSON.stringify(extraction_rules))
+        : null,
       extraction_instructions,
       is_active: is_active !== undefined ? is_active : 1,
     });
@@ -69,8 +71,12 @@ export async function update(req, reply) {
     if (url !== undefined) updateData.url = url;
     if (title !== undefined) updateData.title = title;
     if (type !== undefined) updateData.type = type;
-    if (extraction_rules !== undefined)
-      updateData.extraction_rules = JSON.stringify(extraction_rules);
+    if (extraction_rules !== undefined) {
+      // extraction_rules is already a JSON string from the frontend
+      updateData.extraction_rules = typeof extraction_rules === 'string'
+        ? extraction_rules
+        : JSON.stringify(extraction_rules);
+    }
     if (extraction_instructions !== undefined)
       updateData.extraction_instructions = extraction_instructions;
     if (is_active !== undefined) updateData.is_active = is_active;
@@ -134,7 +140,7 @@ export async function testExtraction(req, reply) {
 
     return {
       total: posts.length,
-      posts: posts.slice(0, 10), // Return first 10 for preview
+      posts: posts, // Return all posts
       by_rule: Object.values(byRule),
     };
   } catch (error) {
@@ -169,7 +175,7 @@ export async function testLLMExtraction(req, reply) {
     return {
       success: true,
       count: posts.length,
-      posts: posts.slice(0, 10), // Return first 10 for preview
+      posts: posts, // Return all posts
       estimated_cost: 0.02, // Placeholder - will be calculated in extractor
       tokens_used: 4500, // Placeholder
     };
@@ -239,64 +245,49 @@ export async function fetchHTML(req, reply) {
  */
 export async function generateSelectors(req, reply) {
   try {
-    const { url, html, prompt } = req.body;
+    const { url, html, additional_instructions } = req.body;
 
     if (!html) {
       return reply.code(400).send({ error: 'HTML is required' });
     }
 
-    // Get OpenAI API key from config
-    const apiKey = db.getConfig('openai_api_key');
-    if (!apiKey) {
-      return reply.code(400).send({ error: 'OpenAI API key not configured. Please configure it in Settings.' });
-    }
-
-    // Import OpenAI dynamically
-    const OpenAI = (await import('openai')).default;
-    const baseURL = db.getConfig('openai_base_url') || 'https://api.openai.com/v1';
-    const openai = new OpenAI({ apiKey, baseURL });
-
-    // Import extractors for HTML cleaning
+    // Import OpenAI client and cleanHTML function
+    const { OpenAIClient } = await import('../openai-client.js');
     const { cleanHTML } = await import('../extractors.js');
 
-    // Clean HTML to remove script and style tags
-    let cleanedHTML = html;
-    // Remove script tags and their contents
-    cleanedHTML = cleanedHTML.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    // Remove style tags and their contents
-    cleanedHTML = cleanedHTML.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    const openaiClient = new OpenAIClient();
 
-    // Default prompt for generating selectors
-    const defaultPrompt = `You are a web scraping expert. Given the HTML of a blog/news page, generate CSS selectors to extract post information.
+    // Clean HTML using the same method as HTML LLM extraction
+    logger.info(`Received HTML (${html.length} chars)`);
+    const cleanedHTML = cleanHTML(html);
+    logger.info(`Cleaned HTML (${cleanedHTML.length} chars)`);
 
-Return a JSON object with the following structure:
+    // Get base prompt from config
+    const basePrompt = db.getConfig('prompt_selector_generation') || `You are a web scraping expert. Analyze the HTML structure and identify the best CSS selectors to extract post information.
+
+Return ONLY a JSON object with this exact structure:
 {
-  "postContainer": "CSS selector that matches each post/article container",
-  "title": "CSS selector for post title (relative to container)",
-  "link": "CSS selector for post link (relative to container)",
-  "date": "CSS selector for post date (relative to container, optional)",
-  "content": "CSS selector for post content/excerpt (relative to container, optional)"
-}
+  "postContainer": "CSS selector for each post container",
+  "title": "CSS selector for title (relative to container)",
+  "link": "CSS selector for link (relative to container)",
+  "date": "CSS selector for date (relative to container, empty string if not found)",
+  "content": "CSS selector for content (relative to container, empty string if not found)"
+}`;
 
-Make sure the selectors are as specific as possible but not overly fragile. Prefer class names and semantic tags.
-Only return the JSON object, no additional text.`;
+    // Build final prompt by appending additional instructions if provided
+    let systemPrompt = basePrompt;
+    if (additional_instructions && additional_instructions.trim()) {
+      systemPrompt += `\n\nAdditional site-specific instructions:\n${additional_instructions}`;
+    }
 
-    const finalPrompt = prompt || defaultPrompt;
-
-    // Call OpenAI
-    const response = await openai.chat.completions.create({
-      model: db.getConfig('openai_model') || 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: finalPrompt },
-        {
-          role: 'user',
-          content: `Base URL: ${url || 'N/A'}\n\nHTML (truncated to first 15000 chars):\n${cleanedHTML.substring(0, 15000)}`,
-        },
-      ],
-      temperature: 0.3,
-    });
-
-    const content = response.choices[0].message.content;
+    // Call OpenAI using the wrapper (same truncation as HTML LLM extraction)
+    const content = await openaiClient.createChatCompletion([
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Base URL: ${url || 'N/A'}\n\nHTML (truncated to first 10000 chars):\n${cleanedHTML.substring(0, 10000)}`,
+      },
+    ]);
 
     // Try to parse as JSON
     let selectors;
@@ -326,7 +317,20 @@ Only return the JSON object, no additional text.`;
       raw_response: content,
     };
   } catch (error) {
-    logger.error('Failed to generate selectors', { error: error.message });
-    return reply.code(500).send({ error: error.message });
+    logger.error('Failed to generate selectors', {
+      error: error.message,
+      stack: error.stack,
+      type: error.constructor.name,
+    });
+
+    // Provide more helpful error messages
+    let errorMessage = error.message;
+    if (error.message.includes('ECONNREFUSED') || error.message.includes('Connection error')) {
+      errorMessage = `Cannot connect to LLM endpoint. Please check that your LLM server is running and the base URL in Settings is correct.`;
+    } else if (error.message.includes('API key')) {
+      errorMessage = 'Invalid API key. Please check your OpenAI API key in Settings.';
+    }
+
+    return reply.code(500).send({ error: errorMessage, details: error.message });
   }
 }

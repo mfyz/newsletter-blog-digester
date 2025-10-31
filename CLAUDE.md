@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ CRITICAL: Docker-Only Development
+
+**NEVER run the development server on the host machine. ALWAYS use Docker Compose.**
+
+- ❌ DO NOT run `npm start`, `npm run dev`, or `node src/server/server.js` on host
+- ❌ DO NOT use Bash tool to start background dev servers
+- ✅ ONLY use `docker compose up` to run the application
+- ✅ Server is already running via Docker with nodemon auto-reload
+
+If you need to check if the app is running, use `docker compose ps` or check http://localhost:5566 - do NOT start additional processes.
+
 ## Project Overview
 
 Newsletter Blog Digester is a Fastify application that periodically checks websites/blogs (RSS feeds and HTML pages), summarizes new posts using OpenAI, and sends digests to Slack. It features a web UI built with Preact + HTM (no build system required) and uses SQLite for data storage.
@@ -10,18 +21,28 @@ Newsletter Blog Digester is a Fastify application that periodically checks websi
 
 ### Development
 
+**IMPORTANT: This application MUST run inside Docker. Do NOT run `npm start` or `npm run dev` on the host machine.**
+
 ```bash
-# Install dependencies
-npm install
+# Start application with Docker Compose (REQUIRED for development)
+docker compose up
 
-# Start server (production mode)
-npm start
+# Start in detached mode (background)
+docker compose up -d
 
-# Start with auto-reload (development)
-npm run dev
+# View logs
+docker compose logs -f
+
+# Restart container (if you need to reload the app)
+docker compose restart
+
+# Stop containers
+docker compose down
 
 # Server runs on http://localhost:5566
 ```
+
+The Docker container runs nodemon for auto-reload, so code changes are automatically detected. Frontend changes only require a browser refresh.
 
 ### Testing
 
@@ -52,18 +73,6 @@ npm run format:check
 npm run pre-commit
 ```
 
-### Docker
-
-```bash
-# Start with Docker Compose
-docker compose up
-
-# Stop containers
-docker compose down
-
-# View logs
-docker compose logs -f
-```
 
 ## Architecture
 
@@ -283,12 +292,16 @@ When editing frontend code:
 
 ## Development Workflow
 
-1. **Backend changes:** Edit files in `src/server/`, nodemon auto-restarts server
-2. **Frontend changes:** Edit files in `src/public/`, refresh browser
-3. **Before commit:** Pre-commit hook runs formatting + tests automatically
-4. **Adding tests:** Create `*.test.js` files in `src/server/__tests__/`
-5. **Testing extraction:** Use "Test Extraction" button in UI (Sites tab) to validate CSS selectors or LLM prompts
+**CRITICAL: Always run the application inside Docker (`docker compose up`). Never use `npm start` or `npm run dev` on the host machine.**
+
+1. **Starting development:** Run `docker compose up` to start the application in Docker
+2. **Backend changes:** Edit files in `src/server/`, nodemon (running inside Docker) auto-restarts server
+3. **Frontend changes:** Edit files in `src/public/`, refresh browser (no restart needed)
+4. **Restarting app:** If you need to restart the container, use `docker compose restart`
+5. **Before commit:** Pre-commit hook runs formatting + tests automatically
+6. **Adding tests:** Create `*.test.js` files in `src/server/__tests__/`
+7. **Testing extraction:** Use "Test Extraction" button in UI (Sites tab) to validate CSS selectors or LLM prompts
 
 ## Project Status
 
-See `plan.md` for detailed initial implementation roadmap and architecture decisions.
+See `plans/initial-plan.md` for detailed initial implementation roadmap and architecture decisions.

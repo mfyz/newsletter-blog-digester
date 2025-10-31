@@ -10,7 +10,7 @@ const rssParser = new Parser();
 /**
  * Clean HTML by removing script and style tags with their contents
  */
-function cleanHTML(html) {
+export function cleanHTML(html) {
   // Remove script tags and their contents
   html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   // Remove style tags and their contents
