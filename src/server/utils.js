@@ -1,4 +1,6 @@
 import { getDb } from './db.js';
+import { NodeHtmlMarkdown } from 'node-html-markdown';
+import * as cheerio from 'cheerio';
 
 /**
  * Logger utility that logs to both console and database
@@ -66,4 +68,65 @@ export function timeAgo(date) {
   if (seconds < 31536000) return `${Math.floor(seconds / 2592000)} months ago`;
 
   return `${Math.floor(seconds / 31536000)} years ago`;
+}
+
+/**
+ * Sanitize HTML by removing script, style, and other non-content elements
+ */
+export function sanitizeHtml(html, selector = null) {
+  const $ = cheerio.load(html);
+
+  // Remove non-content elements
+  $('script').remove();
+  $('style').remove();
+  $('path').remove();
+  $('footer').remove();
+  $('header').remove();
+  $('head').remove();
+
+  // If selector provided, extract only that section
+  if (selector) {
+    const selected = $(selector);
+    return selected.length > 0 ? selected.html() : '';
+  }
+
+  return $.html();
+}
+
+/**
+ * Fetch URL and convert HTML to markdown
+ * @param {string} url - The URL to fetch
+ * @param {string} selector - Optional CSS selector to extract specific content
+ * @returns {Promise<{url: string, html: string, markdown: string}>}
+ */
+export async function fetchUrlAsMarkdown(url, selector = null) {
+  try {
+    // Fetch the URL
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsletterDigester/1.0)',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const html = await response.text();
+
+    // Sanitize HTML
+    const cleanedHtml = sanitizeHtml(html, selector);
+
+    // Convert to markdown
+    const markdown = NodeHtmlMarkdown.translate(cleanedHtml);
+
+    return {
+      url,
+      html: cleanedHtml,
+      markdown,
+    };
+  } catch (error) {
+    logger.error('Failed to fetch URL as markdown', { url, error: error.message });
+    throw error;
+  }
 }

@@ -78,6 +78,7 @@ function createTables() {
       url TEXT NOT NULL,
       title TEXT NOT NULL,
       content TEXT,
+      content_full TEXT,
       summary TEXT,
       notified INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -122,6 +123,18 @@ function runMigrations() {
     // Column might already exist or table doesn't exist yet
   }
 
+  // Add content_full column to posts table if it doesn't exist
+  try {
+    const columns = db.prepare('PRAGMA table_info(posts)').all();
+    const hasContentFull = columns.some(col => col.name === 'content_full');
+
+    if (!hasContentFull) {
+      db.exec('ALTER TABLE posts ADD COLUMN content_full TEXT');
+    }
+  } catch (error) {
+    // Column might already exist or table doesn't exist yet
+  }
+
   // Update posts table unique constraint to remove date
   // SQLite doesn't support DROP CONSTRAINT, so we need to recreate the table
   try {
@@ -142,6 +155,7 @@ function runMigrations() {
           url TEXT NOT NULL,
           title TEXT NOT NULL,
           content TEXT,
+          content_full TEXT,
           summary TEXT,
           notified INTEGER DEFAULT 0,
           created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -152,8 +166,11 @@ function runMigrations() {
 
       // Copy data from old table to new table, removing duplicates by url+title
       db.exec(`
-        INSERT OR IGNORE INTO posts_new (id, site_id, date, url, title, content, summary, notified, created_at)
-        SELECT id, site_id, date, url, title, content, summary, notified, created_at FROM posts
+        INSERT OR IGNORE INTO posts_new (id, site_id, date, url, title, content, content_full, summary, notified, created_at)
+        SELECT id, site_id, date, url, title, content,
+               CASE WHEN EXISTS(SELECT 1 FROM pragma_table_info('posts') WHERE name='content_full')
+                    THEN content_full ELSE NULL END,
+               summary, notified, created_at FROM posts
       `);
 
       // Drop old table
@@ -423,6 +440,10 @@ export function updatePost(id, data) {
   if (data.content !== undefined) {
     fields.push('content = ?');
     values.push(data.content);
+  }
+  if (data.content_full !== undefined) {
+    fields.push('content_full = ?');
+    values.push(data.content_full);
   }
 
   if (fields.length === 0) {

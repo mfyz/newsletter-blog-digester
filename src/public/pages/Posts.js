@@ -16,6 +16,8 @@ export default function Posts() {
   const [filter, setFilter] = useState({ site: 'all', search: '' });
   const [loading, setLoading] = useState(true);
   const [expandedPost, setExpandedPost] = useState(null);
+  const [fetchingContent, setFetchingContent] = useState({});
+  const [showMarkdown, setShowMarkdown] = useState({});
 
   const timeAgo = (date) => {
     if (!date) return 'Unknown';
@@ -121,6 +123,33 @@ export default function Posts() {
     } catch (error) {
       console.error('Failed to delete post:', error);
       toast.error('Failed to delete post');
+    }
+  };
+
+  const handleFetchAndSummarize = async (postId) => {
+    try {
+      setFetchingContent({ ...fetchingContent, [postId]: true });
+
+      const response = await fetch(`/api/posts/${postId}/fetch-and-summarize`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update the post in the posts array with the new data
+        setPosts(posts.map(p => p.id === postId ? data.post : p));
+
+        toast.success('Content fetched and summarized successfully');
+      } else {
+        const data = await response.json();
+        toast.error('Failed to fetch content: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to fetch and summarize:', error);
+      toast.error('Failed to fetch and summarize');
+    } finally {
+      setFetchingContent({ ...fetchingContent, [postId]: false });
     }
   };
 
@@ -292,14 +321,60 @@ export default function Posts() {
                             </a>
                           </div>
 
+                          <!-- Fetch and Summarize Button -->
+                          ${!post.content_full && html`
+                            <div>
+                              <button
+                                onClick=${(e) => {
+                                  e.stopPropagation();
+                                  handleFetchAndSummarize(post.id);
+                                }}
+                                disabled=${fetchingContent[post.id]}
+                                class="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                              >
+                                ${fetchingContent[post.id] ? '🔄 Fetching...' : '🤖 Fetch and summarize with AI'}
+                              </button>
+                            </div>
+                          `}
+
                           <!-- AI Summary -->
                           ${post.summary && html`
                             <div>
-                              <div class="text-xs font-medium text-gray-500 uppercase mb-1">AI Summary</div>
+                              <div class="text-xs font-medium text-gray-500 uppercase mb-1">
+                                AI Summary ${post.content_full ? '(from full content)' : '(from RSS/newsletter)'}
+                              </div>
                               <div
-                                class="text-sm text-gray-700 bg-yellow-50 border border-yellow-200 rounded p-4 summary-content"
+                                class="text-sm text-gray-700 ${post.content_full ? 'bg-purple-50 border-purple-200' : 'bg-yellow-50 border-yellow-200'} border rounded p-4 summary-content"
                                 dangerouslySetInnerHTML=${{ __html: snarkdown(post.summary) }}
                               />
+                            </div>
+                          `}
+
+                          <!-- Full Content (Markdown) -->
+                          ${post.content_full && html`
+                            <div>
+                              <div class="flex items-center justify-between mb-1">
+                                <div class="text-xs font-medium text-gray-500 uppercase">Full Content</div>
+                                <button
+                                  onClick=${(e) => {
+                                    e.stopPropagation();
+                                    setShowMarkdown({ ...showMarkdown, [post.id]: !showMarkdown[post.id] });
+                                  }}
+                                  class="text-xs text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  ${showMarkdown[post.id] ? 'Show Preview' : 'Show Markdown'}
+                                </button>
+                              </div>
+                              ${showMarkdown[post.id] ? html`
+                                <div class="text-sm text-gray-700 bg-gray-50 border-2 border-purple-400 rounded p-4 overflow-auto max-h-[36rem] whitespace-pre-wrap font-mono">
+                                  ${post.content_full}
+                                </div>
+                              ` : html`
+                                <div
+                                  class="text-sm text-gray-700 bg-white border-2 border-purple-400 rounded p-4 overflow-auto max-h-[36rem] summary-content"
+                                  dangerouslySetInnerHTML=${{ __html: snarkdown(post.content_full) }}
+                                />
+                              `}
                             </div>
                           `}
 

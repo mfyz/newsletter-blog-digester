@@ -1,5 +1,6 @@
 import * as db from '../db.js';
-import { logger } from '../utils.js';
+import { logger, fetchUrlAsMarkdown } from '../utils.js';
+import { summarizePost } from '../extractors.js';
 
 /**
  * GET /api/posts - Get all posts with optional filters
@@ -62,5 +63,57 @@ export async function remove(req, reply) {
   } catch (error) {
     logger.error('Failed to delete post', { error: error.message });
     return reply.code(500).send({ error: 'Failed to delete post' });
+  }
+}
+
+/**
+ * POST /api/posts/:id/fetch-and-summarize - Fetch post URL, convert to markdown, and summarize
+ */
+export async function fetchAndSummarize(req, reply) {
+  try {
+    const postId = req.params.id;
+    const post = db.getPost(postId);
+
+    if (!post) {
+      return reply.code(404).send({ error: 'Post not found' });
+    }
+
+    if (!post.url) {
+      return reply.code(400).send({ error: 'Post has no URL' });
+    }
+
+    logger.info('Fetching and summarizing post', { postId, url: post.url });
+
+    // Fetch URL and convert to markdown
+    const { markdown } = await fetchUrlAsMarkdown(post.url);
+
+    if (!markdown || markdown.trim().length === 0) {
+      return reply.code(400).send({ error: 'Failed to extract content from URL' });
+    }
+
+    // Summarize the markdown content
+    const summary = await summarizePost(markdown);
+
+    // Update the post with content_full and new summary
+    db.updatePost(postId, {
+      content_full: markdown,
+      summary: summary,
+    });
+
+    logger.info('Successfully fetched and summarized post, updated database', { postId });
+
+    // Return updated post
+    const updatedPost = db.getPost(postId);
+
+    return {
+      success: true,
+      post: updatedPost,
+    };
+  } catch (error) {
+    logger.error('Failed to fetch and summarize post', {
+      postId: req.params.id,
+      error: error.message,
+    });
+    return reply.code(500).send({ error: `Failed to fetch and summarize: ${error.message}` });
   }
 }
