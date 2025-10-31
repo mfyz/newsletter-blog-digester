@@ -60,35 +60,38 @@ export default function App() {
     <div class="min-h-screen bg-gray-50">
       <header class="bg-white shadow">
         <div class="max-w-7xl mx-auto px-4 py-6">
-          <div class="flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-gray-900">
+          <div class="flex items-center justify-between gap-6">
+            <h1 class="text-3xl font-bold text-gray-900 whitespace-nowrap">
               Newsletter Blog Digester
             </h1>
-            <${Button}
-              onClick=${runCronNow}
-              disabled=${cronRunning}
-              variant="primary"
-            >
-              ${cronRunning ? '⏳ Checking...' : '⚡ Check Now'}
-            </${Button}>
-          </div>
 
-          <nav class="mt-4 flex space-x-4">
-            ${[
-              { id: 'posts', label: '📰 Posts' },
-              { id: 'sites', label: '🌐 Sites' },
-              { id: 'config', label: '⚙️ Settings' },
-              { id: 'logs', label: '📋 Logs' }
-            ].map(tab => html`
+            <div class="flex items-center gap-4">
+              <nav class="flex space-x-2">
+                ${[
+                  { id: 'posts', label: '📰 Posts' },
+                  { id: 'sites', label: '🌐 Sites' },
+                  { id: 'config', label: '⚙️ Settings' },
+                  { id: 'logs', label: '📋 Logs' }
+                ].map(tab => html`
+                  <${Button}
+                    key=${tab.id}
+                    onClick=${() => navigateToTab(tab.id)}
+                    variant=${currentTab === tab.id ? 'primary' : 'secondary'}
+                  >
+                    ${tab.label}
+                  </${Button}>
+                `)}
+              </nav>
+
               <${Button}
-                key=${tab.id}
-                onClick=${() => navigateToTab(tab.id)}
-                variant=${currentTab === tab.id ? 'primary' : 'secondary'}
+                onClick=${runCronNow}
+                disabled=${cronRunning}
+                variant="success"
               >
-                ${tab.label}
+                ${cronRunning ? '⏳ Checking...' : '⚡ Check Now'}
               </${Button}>
-            `)}
-          </nav>
+            </div>
+          </div>
         </div>
       </header>
 
