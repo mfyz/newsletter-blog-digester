@@ -104,18 +104,6 @@ export default function Posts() {
   };
 
   const handleDeletePost = async (postId, postTitle) => {
-    const confirmed = await modal.confirm(
-      `Are you sure you want to delete this post?<br><br><strong>"${postTitle}"</strong><br><br>This action cannot be undone.`,
-      {
-        title: 'Delete Post',
-        confirmText: 'Delete',
-        cancelText: 'Cancel',
-        confirmClass: 'modal__btn-danger'
-      }
-    );
-
-    if (!confirmed) return;
-
     try {
       const response = await fetch(`/api/posts/${postId}`, {
         method: 'DELETE'
