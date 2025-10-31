@@ -149,9 +149,9 @@ export default function Config() {
       <h2 class="text-2xl font-bold text-gray-900">⚙️ Settings</h2>
 
       <form onSubmit=${handleSubmit} class="space-y-6">
-        <!-- General Settings Card -->
+        <!-- Schedule Settings Card -->
         <div class="bg-white rounded-lg shadow p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">General</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Schedule</h3>
           <div class="space-y-4">
             <${Input}
               label="Cron Schedule"
@@ -166,7 +166,13 @@ export default function Config() {
               Examples: <code class="bg-gray-100 px-1">0 9 * * *</code> (9 AM daily),
               <code class="bg-gray-100 px-1">0 */6 * * *</code> (every 6 hours)
             </p>
+          </div>
+        </div>
 
+        <!-- Slack Notifications Card -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Slack Notifications</h3>
+          <div class="space-y-4">
             <${Input}
               label="Slack Webhook URL"
               type="url"
