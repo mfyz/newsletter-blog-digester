@@ -82,7 +82,7 @@ Here is what it looks like:
 - **Database**: SQLite (better-sqlite3)
 - **Frontend**: Preact + HTM + snarkdown
 - **Testing**: uvu + sinon + c8
-- **Formatting**: dprint (Rust-based formatter) / 10-100x faster than Prettier /  Zero npm dependencies
+- **Formatting**: dprint (Rust-based formatter) / 10-100x faster than Prettier / Zero npm dependencies
 - **Git Hooks**: Husky
 - **Container**: Docker Compose
 
