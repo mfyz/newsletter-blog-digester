@@ -177,6 +177,37 @@ export default function Config() {
             <p class="text-sm text-gray-500">
               Required for sending post digests to Slack
             </p>
+
+            <${Input}
+              label="Slack Channels"
+              value=${config.slack_channels || ''}
+              onInput=${e => updateField('slack_channels', e.target.value)}
+              placeholder="general, tech-news, weekly-digest"
+            />
+            <p class="text-sm text-gray-500">
+              Comma-separated list of channel names. The first channel is the default.
+              <br />
+              Example: <code class="bg-gray-100 px-1">general, tech-news, weekly-digest</code>
+            </p>
+
+            <div class="flex items-start gap-3 pt-2">
+              <input
+                type="checkbox"
+                id="enable_cron_slack_digest"
+                checked=${config.enable_cron_slack_digest === '1'}
+                onChange=${e => updateField('enable_cron_slack_digest', e.target.checked ? '1' : '0')}
+                class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <div class="flex-1">
+                <label for="enable_cron_slack_digest" class="text-sm font-medium text-gray-900 cursor-pointer">
+                  Enable automatic Slack digest from cron job
+                </label>
+                <p class="text-sm text-gray-500 mt-1">
+                  When enabled, new posts found during cron checks will be automatically sent to Slack as a digest.
+                  When disabled, you can manually send individual posts using the "Send to Slack" button.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 

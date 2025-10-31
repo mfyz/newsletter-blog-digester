@@ -96,20 +96,26 @@ export async function runCheck() {
 
     logger.info(`Cron check complete: ${totalNewPosts} new posts found`);
 
-    // Send to Slack if we have new posts
+    // Send to Slack if we have new posts and cron digest is enabled
     if (newPostsForSlack.length > 0) {
-      try {
-        const sent = await sendToSlack(newPostsForSlack);
-        if (sent) {
-          // Mark posts as notified
-          newPostsForSlack.forEach((post) => {
-            db.updatePost(post.id, { notified: 1 });
+      const enableCronSlackDigest = db.getConfig('enable_cron_slack_digest');
+
+      if (enableCronSlackDigest === '1') {
+        try {
+          const sent = await sendToSlack(newPostsForSlack);
+          if (sent) {
+            // Mark posts as notified
+            newPostsForSlack.forEach((post) => {
+              db.updatePost(post.id, { notified: 1 });
+            });
+          }
+        } catch (error) {
+          logger.error('Failed to send Slack notification', {
+            error: error.message,
           });
         }
-      } catch (error) {
-        logger.error('Failed to send Slack notification', {
-          error: error.message,
-        });
+      } else {
+        logger.info('Cron Slack digest disabled, skipping notification');
       }
     }
   } catch (error) {

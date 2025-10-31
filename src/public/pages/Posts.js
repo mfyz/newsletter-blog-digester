@@ -13,11 +13,16 @@ const html = htm.bind(h);
 export default function Posts() {
   const [posts, setPosts] = useState([]);
   const [sites, setSites] = useState([]);
+  const [config, setConfig] = useState({});
   const [filter, setFilter] = useState({ site: 'all', search: '', flaggedOnly: false });
   const [loading, setLoading] = useState(true);
   const [expandedPost, setExpandedPost] = useState(null);
   const [fetchingContent, setFetchingContent] = useState({});
   const [showMarkdown, setShowMarkdown] = useState({});
+  const [batchFetchAndSummarizeProcessing, setBatchFetchAndSummarizeProcessing] = useState(false);
+  const [batchFetchAndSummarizeProgress, setBatchFetchAndSummarizeProgress] = useState({ current: 0, total: 0 });
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // Track which post is in confirm state
+  const [channelDropdownOpen, setChannelDropdownOpen] = useState(null); // Track which post has dropdown open
 
   const timeAgo = (date) => {
     if (!date) return 'Unknown';
@@ -84,19 +89,33 @@ export default function Posts() {
     loadData();
   }, []);
 
+  // Close channel dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (channelDropdownOpen) {
+        setChannelDropdownOpen(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [channelDropdownOpen]);
+
   const loadData = async () => {
     try {
-      const [postsRes, sitesRes] = await Promise.all([
+      const [postsRes, sitesRes, configRes] = await Promise.all([
         fetch('/api/posts?limit=100'),
-        fetch('/api/sites')
+        fetch('/api/sites'),
+        fetch('/api/config')
       ]);
 
       const postsData = await postsRes.json();
       const sitesData = await sitesRes.json();
+      const configData = await configRes.json();
 
       // Ensure we always have arrays
       setPosts(Array.isArray(postsData) ? postsData : []);
       setSites(Array.isArray(sitesData) ? sitesData : []);
+      setConfig(configData || {});
     } catch (error) {
       console.error('Failed to load data:', error);
       toast.error('Failed to load posts');
@@ -105,7 +124,20 @@ export default function Posts() {
     }
   };
 
-  const handleDeletePost = async (postId, postTitle) => {
+  const handleDeletePost = async (postId, postTitle, e) => {
+    e.stopPropagation();
+
+    // First click: set to confirm mode
+    if (deleteConfirm !== postId) {
+      setDeleteConfirm(postId);
+      // Reset confirm state after 3 seconds
+      setTimeout(() => {
+        setDeleteConfirm(null);
+      }, 3000);
+      return;
+    }
+
+    // Second click: actually delete
     try {
       const response = await fetch(`/api/posts/${postId}`, {
         method: 'DELETE'
@@ -115,6 +147,7 @@ export default function Posts() {
         // Remove the post from state
         setPosts(posts.filter(p => p.id !== postId));
         setExpandedPost(null);
+        setDeleteConfirm(null);
         toast.success('Post deleted successfully');
       } else {
         const data = await response.json();
@@ -177,6 +210,82 @@ export default function Posts() {
     }
   };
 
+  const handleSendToSlack = async (postId, channel = null, e) => {
+    if (e) e.stopPropagation(); // Prevent row expansion
+
+    try {
+      const body = channel ? { channel } : {};
+      const response = await fetch(`/api/posts/${postId}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update the post in state to mark as notified
+        setPosts(posts.map(p => p.id === postId ? { ...p, notified: 1 } : p));
+        const channelMsg = channel ? ` to #${channel.replace(/^#/, '')}` : '';
+        toast.success(`Post sent to Slack${channelMsg} successfully`);
+        setChannelDropdownOpen(null); // Close dropdown
+      } else {
+        const data = await response.json();
+        toast.error(data.error || 'Failed to send to Slack');
+      }
+    } catch (error) {
+      console.error('Failed to send to Slack:', error);
+      toast.error('Failed to send to Slack');
+    }
+  };
+
+  const handleBatchFetchAndSummarize = async () => {
+    // Get all starred posts that don't have full content
+    const starredPosts = posts.filter(p => p.flagged && !p.content_full);
+
+    if (starredPosts.length === 0) {
+      toast.error('No starred posts without full content found');
+      return;
+    }
+
+    setBatchFetchAndSummarizeProcessing(true);
+    setBatchFetchAndSummarizeProgress({ current: 0, total: starredPosts.length });
+
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (let i = 0; i < starredPosts.length; i++) {
+      const post = starredPosts[i];
+      setBatchFetchAndSummarizeProgress({ current: i + 1, total: starredPosts.length });
+
+      try {
+        const response = await fetch(`/api/posts/${post.id}/fetch-and-summarize`, {
+          method: 'POST'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setPosts(prevPosts => prevPosts.map(p => p.id === post.id ? data.post : p));
+          successCount++;
+        } else {
+          failureCount++;
+        }
+      } catch (error) {
+        console.error(`Failed to fetch and summarize post ${post.id}:`, error);
+        failureCount++;
+      }
+    }
+
+    setBatchFetchAndSummarizeProcessing(false);
+    setBatchFetchAndSummarizeProgress({ current: 0, total: 0 });
+
+    // Show completion toast
+    if (failureCount === 0) {
+      toast.success(`Successfully processed all ${successCount} posts`);
+    } else {
+      toast.error(`Processed ${successCount} posts, ${failureCount} failed`);
+    }
+  };
+
   const filteredPosts = posts.filter(post => {
     if (filter.site !== 'all' && post.site_id !== parseInt(filter.site)) return false;
     if (filter.search && !post.title.toLowerCase().includes(filter.search.toLowerCase())) return false;
@@ -207,10 +316,16 @@ export default function Posts() {
     <div class="space-y-4">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">📰 Posts</h2>
-        <div class="text-sm text-gray-500">
-          ${filteredPosts.length} posts found
-        </div>
+        <h2 class="text-2xl font-bold text-gray-900">📰 Posts (${filteredPosts.length})</h2>
+        <button
+          onClick=${handleBatchFetchAndSummarize}
+          disabled=${batchFetchAndSummarizeProcessing}
+          class="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+        >
+          ${batchFetchAndSummarizeProcessing
+            ? `Processing ${batchFetchAndSummarizeProgress.current}/${batchFetchAndSummarizeProgress.total}`
+            : '⭐ Fetch & AI Summarize Starred'}
+        </button>
       </div>
 
       <!-- Filters -->
@@ -334,7 +449,7 @@ export default function Posts() {
                     <tr key="${post.id}-expanded" class="${post.flagged ? 'bg-orange-50' : 'bg-gray-50'}">
                       <td class="px-4 py-4">
                         <div class="space-y-3">
-                          <!-- Metadata and Delete Button -->
+                          <!-- Metadata and Action Buttons -->
                           <div class="flex items-start justify-between gap-4">
                             <div class="flex flex-wrap gap-2 text-xs">
                               ${post.date && html`
@@ -349,15 +464,69 @@ export default function Posts() {
                                 Notified: ${post.notified ? 'Yes' : 'No'}
                               </span>
                             </div>
-                            <button
-                              onClick=${(e) => {
-                                e.stopPropagation();
-                                handleDeletePost(post.id, post.title);
-                              }}
-                              class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap"
-                            >
-                              🗑️ Delete
-                            </button>
+                            <div class="flex gap-2">
+                              <!-- Split Button: Send to Slack -->
+                              ${(() => {
+                                const channels = config.slack_channels
+                                  ? config.slack_channels.split(',').map(c => c.trim().replace(/^#/, '')).filter(c => c)
+                                  : [];
+                                const hasMultipleChannels = channels.length > 1;
+
+                                return html`
+                                  <div class="relative inline-block">
+                                    <div class="flex">
+                                      <!-- Main button -->
+                                      <button
+                                        onClick=${(e) => handleSendToSlack(post.id, null, e)}
+                                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 ${hasMultipleChannels ? 'rounded-l' : 'rounded'} text-sm whitespace-nowrap flex items-center gap-1"
+                                        title="Send to ${channels.length > 0 ? `#${channels[0]}` : 'Slack'}"
+                                      >
+                                        💬 Send to Slack
+                                      </button>
+                                      <!-- Dropdown trigger (only show if multiple channels configured) -->
+                                      ${hasMultipleChannels && html`
+                                        <button
+                                          onClick=${(e) => {
+                                            e.stopPropagation();
+                                            setChannelDropdownOpen(channelDropdownOpen === post.id ? null : post.id);
+                                          }}
+                                          class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-r border-l border-green-500 text-sm"
+                                          title="Choose channel"
+                                        >
+                                          ▼
+                                        </button>
+                                      `}
+                                    </div>
+                                    <!-- Dropdown menu -->
+                                    ${channelDropdownOpen === post.id && hasMultipleChannels && html`
+                                      <div class="absolute z-50 mt-1 bg-white border border-gray-300 rounded shadow-lg min-w-[180px]">
+                                        ${channels.map(channel => html`
+                                          <button
+                                            key=${channel}
+                                            onClick=${(e) => {
+                                              e.stopPropagation();
+                                              handleSendToSlack(post.id, channel);
+                                            }}
+                                            class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                                          >
+                                            #${channel}
+                                          </button>
+                                        `)}
+                                      </div>
+                                    `}
+                                  </div>
+                                `;
+                              })()}
+                              <button
+                                onClick=${(e) => handleDeletePost(post.id, post.title, e)}
+                                class="${deleteConfirm === post.id
+                                  ? 'bg-orange-600 hover:bg-orange-700 animate-pulse'
+                                  : 'bg-red-600 hover:bg-red-700'} text-white px-3 py-1 rounded text-sm whitespace-nowrap transition-colors"
+                                title="${deleteConfirm === post.id ? 'Click again to confirm deletion' : 'Delete this post'}"
+                              >
+                                ${deleteConfirm === post.id ? '⚠️ Confirm Delete?' : '🗑️ Delete'}
+                              </button>
+                            </div>
                           </div>
 
                           <!-- URL -->

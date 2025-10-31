@@ -427,6 +427,34 @@ export async function fetchHTMLWithLLM(site) {
 }
 
 /**
+ * Post-process AI-generated summary to clean up formatting
+ */
+function cleanupSummary(summary) {
+  if (!summary) return summary;
+
+  let cleaned = summary;
+
+  // Remove excessive line breaks (3+ consecutive newlines -> 2 newlines)
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  // Remove extra line breaks between bullet points
+  // Match patterns like "- item\n\n- item" and replace with "- item\n- item"
+  cleaned = cleaned.replace(/([*\-•].*)\n{2,}(?=[*\-•])/g, '$1\n');
+
+  // Remove extra line breaks between numbered list items
+  // Match patterns like "1. item\n\n2. item" and replace with "1. item\n2. item"
+  cleaned = cleaned.replace(/(\d+\..*)\n{2,}(?=\d+\.)/g, '$1\n');
+
+  // Trim whitespace from each line while preserving line breaks
+  cleaned = cleaned.split('\n').map(line => line.trim()).join('\n');
+
+  // Remove any trailing/leading whitespace
+  cleaned = cleaned.trim();
+
+  return cleaned;
+}
+
+/**
  * Summarize post content using OpenAI
  */
 export async function summarizePost(content) {
@@ -445,7 +473,8 @@ export async function summarizePost(content) {
       { max_tokens: 200 },
     );
 
-    return summary.trim();
+    // Clean up the AI-generated summary
+    return cleanupSummary(summary.trim());
   } catch (error) {
     logger.error('Failed to summarize post', { error: error.message });
     return null; // Return null on error so we can still save the post

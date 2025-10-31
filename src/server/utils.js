@@ -1,6 +1,7 @@
 import { getDb } from './db.js';
 import { NodeHtmlMarkdown } from 'node-html-markdown';
 import * as cheerio from 'cheerio';
+import axios from 'axios';
 
 /**
  * Logger utility that logs to both console and database
@@ -127,6 +128,105 @@ export async function fetchUrlAsMarkdown(url, selector = null) {
     };
   } catch (error) {
     logger.error('Failed to fetch URL as markdown', { url, error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * Convert markdown text to Slack's mrkdwn format
+ * @param {string} text - Markdown text
+ * @returns {string} - Slack mrkdwn formatted text
+ */
+function convertToSlackMrkdwn(text) {
+  if (!text) return text;
+
+  let converted = text;
+
+  // Convert markdown bullet lists (- or *) to Slack format (•)
+  converted = converted.replace(/^[\-\*]\s+/gm, '• ');
+
+  // Convert **bold** to *bold* (Slack uses single asterisks)
+  converted = converted.replace(/\*\*([^*]+)\*\*/g, '*$1*');
+
+  // Convert __bold__ to *bold*
+  converted = converted.replace(/__([^_]+)__/g, '*$1*');
+
+  // Convert _italic_ to _italic_ (same in Slack)
+  // No change needed
+
+  // Ensure proper line breaks for lists
+  converted = converted.replace(/•\s+/g, '• ');
+
+  return converted;
+}
+
+/**
+ * Send a single post to Slack webhook
+ * @param {Object} post - Post object with title, url, summary
+ * @param {string} webhookUrl - Slack webhook URL
+ * @param {string} channel - Optional channel name (without #)
+ * @returns {Promise<boolean>} - Returns true if successful, false otherwise
+ * @throws {Error} - Throws error if webhook call fails
+ */
+export async function sendPostToSlack(post, webhookUrl, channel = null) {
+  if (!webhookUrl) {
+    throw new Error('Slack webhook URL not provided');
+  }
+
+  if (!post || !post.title || !post.url) {
+    throw new Error('Invalid post object - title and url are required');
+  }
+
+  try {
+    // Build Slack message using blocks for proper rendering
+    // Combine title and summary in one block for better formatting
+    let messageText = `*<${post.url}|${post.title}>*`;
+
+    if (post.summary) {
+      // Convert markdown to Slack's mrkdwn format
+      const slackFormattedSummary = convertToSlackMrkdwn(post.summary);
+      // Add summary with proper line breaks
+      messageText += `\n\n${slackFormattedSummary}`;
+    }
+
+    const blocks = [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: messageText,
+        },
+      },
+    ];
+
+    // Prepare payload
+    const payload = {
+      blocks: blocks,
+      // Fallback text for notifications
+      text: `${post.title} - ${post.url}`,
+    };
+
+    // Add channel if specified
+    if (channel) {
+      payload.channel = channel.startsWith('#') ? channel : `#${channel}`;
+    }
+
+    // Send to Slack with blocks
+    await axios.post(webhookUrl, payload);
+
+    logger.info('Post sent to Slack', {
+      postId: post.id,
+      title: post.title,
+      channel: channel || 'default'
+    });
+    return true;
+  } catch (error) {
+    logger.error('Failed to send post to Slack webhook', {
+      postId: post.id,
+      error: error.message,
+      status: error.response?.status,
+      channel: channel || 'default'
+    });
     throw error;
   }
 }

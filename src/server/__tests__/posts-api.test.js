@@ -1,7 +1,9 @@
 import { suite } from 'uvu';
 import * as assert from 'uvu/assert';
+import sinon from 'sinon';
 import * as postsAPI from '../api/posts.js';
 import * as db from '../db.js';
+import axios from 'axios';
 
 const PostsAPITests = suite('Posts API Tests');
 
@@ -28,6 +30,10 @@ PostsAPITests.before.each(() => {
     code: function(val) { this._code = val; return this; },
     send: function(val) { this._sent = val; return this; },
   };
+});
+
+PostsAPITests.after.each(() => {
+  sinon.restore();
 });
 
 PostsAPITests.after(() => {
@@ -262,6 +268,289 @@ PostsAPITests('toggleFlag should return 400 for missing flagged value', async ()
 
   assert.equal(mockReply._code, 400);
   assert.equal(mockReply._sent.error, 'Flagged must be 0 or 1');
+});
+
+// ========== POST /api/posts/:id/notify tests ==========
+PostsAPITests('notify should send post to Slack successfully', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+    summary: 'Test summary',
+  });
+
+  // Set Slack webhook URL
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+
+  // Stub axios.post
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  const result = await postsAPI.notify({ params: { id: String(post.id) } }, mockReply);
+
+  assert.equal(result.success, true);
+  assert.equal(result.notified, true);
+
+  // Verify axios was called with correct URL and payload
+  assert.ok(axiosStub.calledOnce);
+  assert.equal(axiosStub.firstCall.args[0], 'https://hooks.slack.com/test');
+  const payload = axiosStub.firstCall.args[1];
+  // Check blocks structure
+  assert.ok(payload.blocks);
+  assert.equal(payload.blocks.length, 1); // Single combined block
+  assert.ok(payload.blocks[0].text.text.includes(post.title));
+  assert.ok(payload.blocks[0].text.text.includes(post.url));
+  assert.ok(payload.blocks[0].text.text.includes(post.summary));
+  // Check fallback text
+  assert.ok(payload.text.includes(post.title));
+
+  // Verify post was marked as notified in database
+  const updatedPost = db.getPost(post.id);
+  assert.equal(updatedPost.notified, 1);
+});
+
+PostsAPITests('notify should return 404 for non-existent post', async () => {
+  await postsAPI.notify({ params: { id: '999' } }, mockReply);
+
+  assert.equal(mockReply._code, 404);
+  assert.equal(mockReply._sent.error, 'Post not found');
+});
+
+PostsAPITests('notify should return 400 if Slack webhook URL not configured', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({ url: 'https://example.com/post1', title: 'Test Post', site_id: site.id });
+
+  // Clear Slack webhook URL
+  db.setConfig('slack_webhook_url', '');
+
+  await postsAPI.notify({ params: { id: String(post.id) } }, mockReply);
+
+  assert.equal(mockReply._code, 400);
+  assert.equal(mockReply._sent.error, 'Slack webhook URL not configured');
+});
+
+PostsAPITests('notify should return 502 on Slack webhook failure', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({ url: 'https://example.com/post1', title: 'Test Post', site_id: site.id });
+
+  // Set Slack webhook URL
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+
+  // Stub axios to throw error
+  const axiosStub = sinon.stub(axios, 'post').rejects(new Error('Network error'));
+
+  await postsAPI.notify({ params: { id: String(post.id) } }, mockReply);
+
+  assert.equal(mockReply._code, 502);
+  assert.ok(mockReply._sent.error.includes('Failed to send to Slack'));
+  assert.ok(mockReply._sent.error.includes('Network error'));
+
+  // Verify post was NOT marked as notified
+  const updatedPost = db.getPost(post.id);
+  assert.equal(updatedPost.notified, 0);
+});
+
+PostsAPITests('notify should handle post without summary', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+  });
+
+  // Set Slack webhook URL
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+
+  // Stub axios.post
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  const result = await postsAPI.notify({ params: { id: String(post.id) } }, mockReply);
+
+  assert.equal(result.success, true);
+  assert.ok(axiosStub.calledOnce);
+});
+
+PostsAPITests('notify should send to specific channel when provided', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+  });
+
+  // Set Slack webhook URL and channels
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+  db.setConfig('slack_channels', 'general, tech-news, weekly-digest');
+
+  // Stub axios.post
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  const result = await postsAPI.notify({
+    params: { id: String(post.id) },
+    body: { channel: 'tech-news' }
+  }, mockReply);
+
+  assert.equal(result.success, true);
+  assert.equal(result.channel, 'tech-news');
+
+  // Verify axios was called with channel
+  const payload = axiosStub.firstCall.args[1];
+  assert.equal(payload.channel, '#tech-news');
+});
+
+PostsAPITests('notify should use first channel as default when no channel specified', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+  });
+
+  // Set Slack webhook URL and channels
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+  db.setConfig('slack_channels', 'general, tech-news');
+
+  // Stub axios.post
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  const result = await postsAPI.notify({ params: { id: String(post.id) } }, mockReply);
+
+  assert.equal(result.success, true);
+  assert.equal(result.channel, 'general');
+
+  // Verify axios was called with default channel
+  const payload = axiosStub.firstCall.args[1];
+  assert.equal(payload.channel, '#general');
+});
+
+PostsAPITests('notify should reject invalid channel', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+  });
+
+  // Set Slack webhook URL and channels
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+  db.setConfig('slack_channels', 'general, tech-news');
+
+  await postsAPI.notify({
+    params: { id: String(post.id) },
+    body: { channel: 'invalid-channel' }
+  }, mockReply);
+
+  assert.equal(mockReply._code, 400);
+  assert.ok(mockReply._sent.error.includes('Invalid channel'));
+  assert.ok(mockReply._sent.error.includes('general, tech-news'));
+});
+
+PostsAPITests('notify should reject channel when no channels configured', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+  });
+
+  // Set Slack webhook URL but no channels
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+  db.setConfig('slack_channels', '');
+
+  await postsAPI.notify({
+    params: { id: String(post.id) },
+    body: { channel: 'general' }
+  }, mockReply);
+
+  assert.equal(mockReply._code, 400);
+  assert.ok(mockReply._sent.error.includes('No Slack channels configured'));
+});
+
+PostsAPITests('notify should normalize channel names with spaces', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+  });
+
+  // Set Slack webhook URL and channels with spaces
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+  db.setConfig('slack_channels', ' general , tech-news , weekly-digest ');
+
+  // Stub axios.post
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  // Send to channel with spaces
+  const result = await postsAPI.notify({
+    params: { id: String(post.id) },
+    body: { channel: ' tech-news ' }
+  }, mockReply);
+
+  assert.equal(result.success, true);
+  assert.equal(result.channel, 'tech-news');
+
+  // Verify axios was called with normalized channel
+  const payload = axiosStub.firstCall.args[1];
+  assert.equal(payload.channel, '#tech-news');
+});
+
+PostsAPITests('notify should normalize channel names with # prefix', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+  });
+
+  // Set Slack webhook URL and channels with # prefix
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+  db.setConfig('slack_channels', '#general, #tech-news, #weekly-digest');
+
+  // Stub axios.post
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  // Send to channel with # prefix
+  const result = await postsAPI.notify({
+    params: { id: String(post.id) },
+    body: { channel: '#tech-news' }
+  }, mockReply);
+
+  assert.equal(result.success, true);
+  assert.equal(result.channel, 'tech-news');
+
+  // Verify axios was called with normalized channel
+  const payload = axiosStub.firstCall.args[1];
+  assert.equal(payload.channel, '#tech-news');
+});
+
+PostsAPITests('notify should normalize channel names with spaces and # prefix', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({
+    url: 'https://example.com/post1',
+    title: 'Test Post',
+    site_id: site.id,
+  });
+
+  // Set Slack webhook URL and channels with mixed formatting
+  db.setConfig('slack_webhook_url', 'https://hooks.slack.com/test');
+  db.setConfig('slack_channels', ' #general , tech-news , #weekly-digest ');
+
+  // Stub axios.post
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  // Send to channel with both spaces and # prefix
+  const result = await postsAPI.notify({
+    params: { id: String(post.id) },
+    body: { channel: ' #weekly-digest ' }
+  }, mockReply);
+
+  assert.equal(result.success, true);
+  assert.equal(result.channel, 'weekly-digest');
+
+  // Verify axios was called with normalized channel
+  const payload = axiosStub.firstCall.args[1];
+  assert.equal(payload.channel, '#weekly-digest');
 });
 
 PostsAPITests.run();

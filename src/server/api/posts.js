@@ -1,5 +1,5 @@
 import * as db from '../db.js';
-import { logger, fetchUrlAsMarkdown } from '../utils.js';
+import { logger, fetchUrlAsMarkdown, sendPostToSlack } from '../utils.js';
 import { summarizePost } from '../extractors.js';
 
 /**
@@ -142,5 +142,78 @@ export async function toggleFlag(req, reply) {
   } catch (error) {
     logger.error('Failed to update post flagged status', { error: error.message });
     return reply.code(500).send({ error: 'Failed to update flagged status' });
+  }
+}
+
+/**
+ * POST /api/posts/:id/notify - Send a single post to Slack
+ * Body: { channel: 'optional-channel-name' }
+ */
+export async function notify(req, reply) {
+  try {
+    const postId = req.params.id;
+    const { channel } = req.body || {};
+    const post = db.getPost(postId);
+
+    if (!post) {
+      return reply.code(404).send({ error: 'Post not found' });
+    }
+
+    // Check if Slack webhook URL is configured
+    const webhookUrl = db.getConfig('slack_webhook_url');
+    if (!webhookUrl) {
+      return reply.code(400).send({ error: 'Slack webhook URL not configured' });
+    }
+
+    // Get configured channels and validate if channel is specified
+    const slackChannelsConfig = db.getConfig('slack_channels');
+    const availableChannels = slackChannelsConfig
+      ? slackChannelsConfig.split(',').map(c => c.trim().replace(/^#/, '')).filter(c => c)
+      : [];
+
+    // Normalize and validate channel if provided
+    let targetChannel = null;
+    if (channel) {
+      if (availableChannels.length === 0) {
+        return reply.code(400).send({
+          error: 'No Slack channels configured. Please configure channels in Settings.'
+        });
+      }
+
+      const normalizedChannel = channel.trim().replace(/^#/, '');
+      const isValidChannel = availableChannels.some(c => c === normalizedChannel);
+
+      if (!isValidChannel) {
+        return reply.code(400).send({
+          error: `Invalid channel: ${channel}. Available channels: ${availableChannels.join(', ')}`
+        });
+      }
+
+      targetChannel = normalizedChannel;
+    } else {
+      // Use first channel as default if no channel specified
+      targetChannel = availableChannels.length > 0 ? availableChannels[0] : null;
+    }
+
+    // Send to Slack using utility function
+    try {
+      await sendPostToSlack(post, webhookUrl, targetChannel);
+
+      // Update post as notified
+      db.updatePost(postId, { notified: 1 });
+
+      return {
+        success: true,
+        notified: true,
+        channel: targetChannel || 'default'
+      };
+    } catch (slackError) {
+      return reply.code(502).send({
+        error: `Failed to send to Slack: ${slackError.message}`,
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to notify post', { error: error.message });
+    return reply.code(500).send({ error: 'Failed to notify post' });
   }
 }
