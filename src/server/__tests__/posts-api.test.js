@@ -186,4 +186,82 @@ PostsAPITests('truncate should return 0 count when no posts exist', async () => 
   assert.equal(result.deletedCount, 0);
 });
 
+// ========== PUT /api/posts/:id/flag tests ==========
+PostsAPITests('toggleFlag should flag a post successfully', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({ url: 'https://example.com/post1', title: 'Test Post', site_id: site.id });
+
+  // Flag the post
+  const result = await postsAPI.toggleFlag(
+    { params: { id: String(post.id) }, body: { flagged: 1 } },
+    mockReply
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(result.flagged, 1);
+
+  // Verify post was flagged in database
+  const updatedPost = db.getPost(post.id);
+  assert.equal(updatedPost.flagged, 1);
+});
+
+PostsAPITests('toggleFlag should unflag a post successfully', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({ url: 'https://example.com/post1', title: 'Test Post', site_id: site.id });
+
+  // Flag the post first
+  db.updatePost(post.id, { flagged: 1 });
+
+  // Unflag the post
+  const result = await postsAPI.toggleFlag(
+    { params: { id: String(post.id) }, body: { flagged: 0 } },
+    mockReply
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(result.flagged, 0);
+
+  // Verify post was unflagged in database
+  const updatedPost = db.getPost(post.id);
+  assert.equal(updatedPost.flagged, 0);
+});
+
+PostsAPITests('toggleFlag should return 404 for non-existent post', async () => {
+  await postsAPI.toggleFlag(
+    { params: { id: '999' }, body: { flagged: 1 } },
+    mockReply
+  );
+
+  assert.equal(mockReply._code, 404);
+  assert.equal(mockReply._sent.error, 'Post not found');
+});
+
+PostsAPITests('toggleFlag should return 400 for invalid flagged value', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({ url: 'https://example.com/post1', title: 'Test Post', site_id: site.id });
+
+  // Try to set invalid flagged value
+  await postsAPI.toggleFlag(
+    { params: { id: String(post.id) }, body: { flagged: 2 } },
+    mockReply
+  );
+
+  assert.equal(mockReply._code, 400);
+  assert.equal(mockReply._sent.error, 'Flagged must be 0 or 1');
+});
+
+PostsAPITests('toggleFlag should return 400 for missing flagged value', async () => {
+  const site = db.createSite({ url: 'https://example.com/rss', title: 'Test Site', type: 'rss' });
+  const post = db.createPost({ url: 'https://example.com/post1', title: 'Test Post', site_id: site.id });
+
+  // Try to call without flagged value
+  await postsAPI.toggleFlag(
+    { params: { id: String(post.id) }, body: {} },
+    mockReply
+  );
+
+  assert.equal(mockReply._code, 400);
+  assert.equal(mockReply._sent.error, 'Flagged must be 0 or 1');
+});
+
 PostsAPITests.run();

@@ -467,6 +467,60 @@ DbTests('updatePost() - should be no-op when no fields provided', () => {
   assert.equal(updated, post);
 });
 
+DbTests('updatePost() - should update flagged field', () => {
+  const site = createSite({ url: 'https://updatepost6.com/rss', title: 'UpdatePost Site 6', type: 'rss' });
+  const post = createPost({
+    site_id: site.id,
+    url: 'https://updatepost6.com/1',
+    title: 'Flagged Post',
+  });
+
+  // Post should be unflagged by default
+  assert.is(post.flagged, 0);
+
+  // Flag the post
+  const flagged = updatePost(post.id, { flagged: 1 });
+  assert.is(flagged.flagged, 1);
+
+  // Unflag the post
+  const unflagged = updatePost(post.id, { flagged: 0 });
+  assert.is(unflagged.flagged, 0);
+});
+
+DbTests('updatePost() - flagged field should persist', () => {
+  const site = createSite({ url: 'https://updatepost7.com/rss', title: 'UpdatePost Site 7', type: 'rss' });
+  const post = createPost({
+    site_id: site.id,
+    url: 'https://updatepost7.com/1',
+    title: 'Persist Flagged',
+  });
+
+  // Flag the post
+  updatePost(post.id, { flagged: 1 });
+
+  // Retrieve the post again to verify it persisted
+  const retrieved = getPost(post.id);
+  assert.is(retrieved.flagged, 1);
+});
+
+DbTests('updatePost() - should update other fields without affecting flagged status', () => {
+  const site = createSite({ url: 'https://updatepost8.com/rss', title: 'UpdatePost Site 8', type: 'rss' });
+  const post = createPost({
+    site_id: site.id,
+    url: 'https://updatepost8.com/1',
+    title: 'Independent Update',
+  });
+
+  // Flag the post
+  updatePost(post.id, { flagged: 1 });
+
+  // Update summary without touching flagged
+  const updated = updatePost(post.id, { summary: 'New Summary' });
+
+  assert.is(updated.flagged, 1); // Should remain flagged
+  assert.is(updated.summary, 'New Summary');
+});
+
 // ========== cleanupOldContent() Tests ==========
 DbTests('cleanupOldContent() - should clear content for old posts', () => {
   const site = createSite({ url: 'https://cleanup.com/rss', title: 'Cleanup Site', type: 'rss' });
