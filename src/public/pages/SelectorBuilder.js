@@ -9,11 +9,28 @@ import { modal } from '../utils/modal.js';
 const html = htm.bind(h);
 
 export default function SelectorBuilder() {
+  // Get query params from URL hash
+  const getQueryParams = () => {
+    const hash = window.location.hash.slice(1); // Remove '#' prefix
+    const [, queryString] = hash.split('?');
+    if (!queryString) return {};
+
+    const params = new URLSearchParams(queryString);
+    const rulesParam = params.get('rules');
+
+    return {
+      url: params.get('url') || '',
+      rules: rulesParam ? JSON.parse(decodeURIComponent(rulesParam)) : null
+    };
+  };
+
+  const initialParams = getQueryParams();
+
   // Workflow steps
   const [currentStep, setCurrentStep] = useState(1); // 1: Fetch HTML, 2: Generate Selectors, 3: Test Selectors
 
   // Step 1: Fetch HTML
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState(initialParams.url);
   const [fetchedHTML, setFetchedHTML] = useState('');
   const [fetchingHTML, setFetchingHTML] = useState(false);
   const [showHTML, setShowHTML] = useState(false);
@@ -35,7 +52,7 @@ Make sure the selectors are as specific as possible but not overly fragile. Pref
 Only return the JSON object, no additional text.`);
 
   // Step 3: Test Selectors
-  const [rules, setRules] = useState({
+  const [rules, setRules] = useState(initialParams.rules || {
     postContainer: '.post',
     title: '.post-title',
     link: '.post-title a',
@@ -45,6 +62,18 @@ Only return the JSON object, no additional text.`);
   const [testing, setTesting] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+
+  // Listen for hash changes to update form fields
+  useEffect(() => {
+    const handleHashChange = () => {
+      const params = getQueryParams();
+      if (params.url) setUrl(params.url);
+      if (params.rules) setRules(params.rules);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Syntax highlighter loaded flag
   const [highlightLoaded, setHighlightLoaded] = useState(false);

@@ -1,5 +1,5 @@
 import { h } from 'https://esm.sh/preact@10.19.3';
-import { useState } from 'https://esm.sh/preact@10.19.3/hooks';
+import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
 import Button from '../components/Button.js';
 import Input from '../components/Input.js';
@@ -9,11 +9,55 @@ import { modal } from '../utils/modal.js';
 const html = htm.bind(h);
 
 export default function PromptEditor() {
-  const [url, setUrl] = useState('');
-  const [instructions, setInstructions] = useState('Extract all blog posts, including their titles, URLs, publication dates, and content summaries.');
+  // Get query params from URL hash
+  const getQueryParams = () => {
+    const hash = window.location.hash.slice(1); // Remove '#' prefix
+    const [, queryString] = hash.split('?');
+    if (!queryString) return {};
+
+    const params = new URLSearchParams(queryString);
+    return {
+      url: params.get('url') || '',
+      instructions: params.get('instructions') || 'Extract all blog posts, including their titles, URLs, publication dates, and content summaries.'
+    };
+  };
+
+  const initialParams = getQueryParams();
+  const [url, setUrl] = useState(initialParams.url);
+  const [instructions, setInstructions] = useState(initialParams.instructions);
   const [testing, setTesting] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  const [basePrompt, setBasePrompt] = useState('');
+  const [loadingConfig, setLoadingConfig] = useState(true);
+
+  // Fetch base prompt from config
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        setBasePrompt(config.prompt_html_extract_base || '');
+      } catch (err) {
+        console.error('Failed to load config:', err);
+      } finally {
+        setLoadingConfig(false);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  // Listen for hash changes to update form fields
+  useEffect(() => {
+    const handleHashChange = () => {
+      const params = getQueryParams();
+      if (params.url) setUrl(params.url);
+      if (params.instructions) setInstructions(params.instructions);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const handleTest = async () => {
     if (!url) {
@@ -46,25 +90,6 @@ export default function PromptEditor() {
     }
   };
 
-  const exampleInstructions = [
-    {
-      name: 'Blog Posts',
-      text: 'Extract all blog posts, including their titles, URLs, publication dates, and content summaries.'
-    },
-    {
-      name: 'Newsletter',
-      text: 'Extract newsletter items. Focus on the main articles in the "Featured" section. Ignore advertisements and footer links.'
-    },
-    {
-      name: 'News Articles',
-      text: 'Extract all news articles. Include both the headline and subheadline as the title. Filter out any sponsored content.'
-    },
-    {
-      name: 'Product Updates',
-      text: 'Extract product updates and releases. Include the product name, version, and a brief description of what changed.'
-    }
-  ];
-
   return html`
     <div class="space-y-6">
       <!-- Header -->
@@ -86,39 +111,35 @@ export default function PromptEditor() {
           required=${true}
         />
 
+        <!-- Base Prompt Display -->
+        ${!loadingConfig && basePrompt && html`
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Base Prompt (from Settings)
+            </label>
+            <div class="bg-gray-50 border border-gray-200 rounded-md p-4 text-sm text-gray-700 whitespace-pre-wrap">
+              ${basePrompt}
+            </div>
+            <p class="text-xs text-gray-500 mt-1">
+              This base prompt is always included. It ensures the LLM returns properly formatted JSON. You can modify it in the Settings tab.
+            </p>
+          </div>
+        `}
+
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">
-            Extraction Instructions
+            Site-Specific Instructions (Optional)
           </label>
           <textarea
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows="4"
-            placeholder="Describe what you want to extract..."
+            placeholder="Additional instructions specific to this site... (e.g., 'Focus on articles in the Featured section. Ignore sponsored posts.')"
             value=${instructions}
             onInput=${e => setInstructions(e.target.value)}
           ></textarea>
           <p class="text-xs text-gray-500 mt-1">
-            Provide specific instructions for what to extract from the page. Be clear about what to include and exclude.
+            These instructions are appended to the base prompt above. Use them to provide site-specific context or filtering rules.
           </p>
-        </div>
-
-        <!-- Example Prompts -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Example Instructions
-          </label>
-          <div class="grid grid-cols-2 gap-2">
-            ${exampleInstructions.map(example => html`
-              <button
-                key=${example.name}
-                onClick=${() => setInstructions(example.text)}
-                class="text-left px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
-              >
-                <div class="font-medium text-gray-900">${example.name}</div>
-                <div class="text-xs text-gray-500 mt-1 line-clamp-2">${example.text}</div>
-              </button>
-            `)}
-          </div>
         </div>
 
         <div class="bg-yellow-50 border border-yellow-200 rounded p-4">

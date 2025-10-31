@@ -5,8 +5,7 @@ import Sites from './Sites.js';
 import Posts from './Posts.js';
 import Config from './Config.js';
 import Logs from './Logs.js';
-import SelectorBuilder from './SelectorBuilder.js';
-import PromptEditor from './PromptEditor.js';
+import SiteEdit from './SiteEdit.js';
 import Button from '../components/Button.js';
 import { toast } from '../utils/toast.js';
 import { modal } from '../utils/modal.js';
@@ -17,16 +16,17 @@ export default function App() {
   // Get initial tab from URL hash or default to 'posts'
   const getInitialTab = () => {
     const hash = window.location.hash.slice(1); // Remove '#' prefix
-    return hash || 'posts';
+    const [tab] = hash.split('?'); // Extract tab name without query params
+    return tab || 'posts';
   };
 
   const [currentTab, setCurrentTab] = useState(getInitialTab());
   const [cronRunning, setCronRunning] = useState(false);
 
-  // Update URL hash when tab changes
-  const navigateToTab = (tab) => {
+  // Update URL hash when tab changes, optionally with query params
+  const navigateToTab = (tab, queryString = '') => {
     setCurrentTab(tab);
-    window.location.hash = tab;
+    window.location.hash = queryString ? `${tab}?${queryString}` : tab;
   };
 
   // Listen for hash changes (back/forward navigation)
@@ -34,7 +34,8 @@ export default function App() {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
       if (hash) {
-        setCurrentTab(hash);
+        const [tab] = hash.split('?'); // Extract tab name without query params
+        setCurrentTab(tab);
       }
     };
 
@@ -76,7 +77,6 @@ export default function App() {
             ${[
               { id: 'posts', label: '📰 Posts' },
               { id: 'sites', label: '🌐 Sites' },
-              { id: 'tools', label: '🔧 Tools' },
               { id: 'config', label: '⚙️ Settings' },
               { id: 'logs', label: '📋 Logs' }
             ].map(tab => html`
@@ -95,46 +95,7 @@ export default function App() {
       <main class="max-w-7xl mx-auto px-4 py-8">
         ${currentTab === 'sites' && html`<${Sites} onNavigate=${navigateToTab} />`}
         ${currentTab === 'posts' && html`<${Posts} />`}
-        ${currentTab === 'tools' && html`
-          <div class="space-y-6">
-            <div>
-              <h2 class="text-2xl font-bold text-gray-900 mb-4">Extraction Tools</h2>
-              <p class="text-gray-600 mb-6">Test and configure different extraction methods for your sites</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- HTML Selector Card -->
-              <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-xl font-semibold text-gray-900 mb-2">HTML Selector Builder</h3>
-                <p class="text-sm text-gray-600 mb-4">
-                  Test CSS selectors to extract posts from HTML pages. Best for sites with consistent structure.
-                </p>
-                <${Button}
-                  variant="primary"
-                  onClick=${() => navigateToTab('selector-builder')}
-                >
-                  Open Selector Builder
-                </${Button}>
-              </div>
-
-              <!-- LLM Extraction Card -->
-              <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-xl font-semibold text-gray-900 mb-2">LLM Extraction Tester</h3>
-                <p class="text-sm text-gray-600 mb-4">
-                  Use AI to intelligently extract content. Best for complex or changing layouts.
-                </p>
-                <${Button}
-                  variant="primary"
-                  onClick=${() => navigateToTab('prompt-editor')}
-                >
-                  Open LLM Tester
-                </${Button}>
-              </div>
-            </div>
-          </div>
-        `}
-        ${currentTab === 'selector-builder' && html`<${SelectorBuilder} />`}
-        ${currentTab === 'prompt-editor' && html`<${PromptEditor} />`}
+        ${currentTab === 'site-edit' && html`<${SiteEdit} key=${window.location.hash} onNavigate=${navigateToTab} />`}
         ${currentTab === 'config' && html`<${Config} />`}
         ${currentTab === 'logs' && html`<${Logs} />`}
       </main>

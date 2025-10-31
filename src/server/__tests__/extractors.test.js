@@ -1003,9 +1003,10 @@ ExtractorTests('fetchHTMLWithLLM() - EDGE: should handle LLM returning markdown-
 
   const posts = await extractors.fetchHTMLWithLLM(site);
 
-  // BUG: The extractor doesn't strip markdown code blocks before parsing
-  // This results in JSON parse failure and returns empty array
-  assert.is(posts.length, 0);
+  // The extractor now properly strips markdown code blocks before parsing
+  assert.is(posts.length, 1);
+  assert.is(posts[0].title, 'Markdown Wrapped Post');
+  assert.is(posts[0].url, 'https://example.com/wrapped');
 });
 
 // Slack Edge Cases

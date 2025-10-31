@@ -122,7 +122,25 @@ export async function fetchHTMLWithRules(site) {
     // Parse extraction rules from JSON
     let rules;
     try {
-      rules = JSON.parse(site.extraction_rules || '[]');
+      const parsed = JSON.parse(site.extraction_rules || '{}');
+
+      // Handle both old array format and new object format
+      if (Array.isArray(parsed)) {
+        // Old format: array of rule objects
+        rules = parsed;
+      } else if (parsed.postContainer) {
+        // New format: single object with postContainer, title, link, etc.
+        rules = [{
+          name: 'default',
+          container: parsed.postContainer,
+          title: parsed.title,
+          url: parsed.link || parsed.url,
+          date: parsed.date,
+          content: parsed.content
+        }];
+      } else {
+        rules = [];
+      }
     } catch (e) {
       logger.error(`Failed to parse extraction rules for site ${site.id}`, {
         error: e.message,
@@ -152,14 +170,14 @@ export async function fetchHTMLWithRules(site) {
         let title = '';
         if (rule.title) {
           const titleEl = rule.title === '.' ? $container : $container.find(rule.title);
-          title = titleEl.text().trim();
+          title = titleEl.first().text().trim();
         }
 
         // Extract URL (get href attribute)
         let url = '';
         if (rule.url) {
           const urlEl = rule.url === '.' ? $container : $container.find(rule.url);
-          url = urlEl.attr('href') || '';
+          url = urlEl.first().attr('href') || '';
 
           // Handle relative URLs
           if (url && !url.startsWith('http')) {
@@ -171,7 +189,24 @@ export async function fetchHTMLWithRules(site) {
         let content = '';
         if (rule.content) {
           const contentEl = rule.content === '.' ? $container : $container.find(rule.content);
-          content = contentEl.text().trim();
+          content = contentEl.first().text().trim();
+        }
+
+        // Extract date if provided
+        let date = new Date().toISOString();
+        if (rule.date) {
+          const dateEl = rule.date === '.' ? $container : $container.find(rule.date);
+          const dateText = dateEl.first().text().trim();
+          if (dateText) {
+            try {
+              const parsedDate = new Date(dateText);
+              if (!isNaN(parsedDate.getTime())) {
+                date = parsedDate.toISOString();
+              }
+            } catch (e) {
+              // Keep default date if parsing fails
+            }
+          }
         }
 
         // Only add if we have at least title and URL
@@ -180,7 +215,7 @@ export async function fetchHTMLWithRules(site) {
             title,
             url,
             content: content || '',
-            date: new Date().toISOString(), // Use current date as fallback
+            date,
             source_rule: rule.name || 'default', // Track which rule extracted this
           });
         }
@@ -197,14 +232,38 @@ export async function fetchHTMLWithRules(site) {
 }
 
 /**
+ * Strip markdown code blocks from LLM response
+ */
+function stripCodeBlocks(content) {
+  // Remove ```json and ``` markers
+  let cleaned = content.trim();
+
+  // Check if content starts with markdown code block
+  if (cleaned.startsWith('```')) {
+    // Remove opening ```json or ```
+    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '');
+    // Remove closing ```
+    cleaned = cleaned.replace(/\n?```\s*$/, '');
+  }
+
+  return cleaned.trim();
+}
+
+/**
  * Fetch HTML and extract using LLM
  */
 export async function fetchHTMLWithLLM(site) {
   try {
+    logger.info(`Starting LLM extraction for site: ${site.title}`, {
+      site_id: site.id,
+      url: site.url,
+    });
+
     // Create OpenAI client
     const openaiClient = new OpenAIClient();
 
     // Fetch HTML
+    logger.info(`Fetching HTML from: ${site.url}`, { site_id: site.id });
     const response = await axios.get(site.url, {
       headers: {
         'User-Agent':
@@ -214,9 +273,13 @@ export async function fetchHTMLWithLLM(site) {
     });
 
     const html = response.data;
+    logger.info(`Fetched HTML (${html.length} chars)`, { site_id: site.id });
 
     // Clean HTML to remove script and style tags
     const cleanedHTML = cleanHTML(html);
+    logger.info(`Cleaned HTML (${cleanedHTML.length} chars)`, {
+      site_id: site.id,
+    });
 
     // Always use base prompt
     const basePrompt = db.getConfig('prompt_html_extract_base');
@@ -225,16 +288,34 @@ export async function fetchHTMLWithLLM(site) {
     let fullPrompt = basePrompt;
     if (site.extraction_instructions) {
       fullPrompt += `\n\nAdditional instructions for this site:\n${site.extraction_instructions}`;
+      logger.info('Using site-specific extraction instructions', {
+        site_id: site.id,
+      });
     }
 
     // Call OpenAI
-    const content = await openaiClient.createChatCompletion([
+    logger.info('Calling OpenAI API for extraction', { site_id: site.id });
+    const rawContent = await openaiClient.createChatCompletion([
       { role: 'system', content: fullPrompt },
       {
         role: 'user',
         content: `Base URL: ${site.url}\n\nHTML (truncated to first 10000 chars):\n${cleanedHTML.substring(0, 10000)}`,
       },
     ]);
+
+    logger.info(`Received LLM response (${rawContent.length} chars)`, {
+      site_id: site.id,
+      preview: rawContent.substring(0, 200),
+    });
+
+    // Strip markdown code blocks if present
+    const content = stripCodeBlocks(rawContent);
+
+    if (content !== rawContent) {
+      logger.info('Stripped markdown code blocks from LLM response', {
+        site_id: site.id,
+      });
+    }
 
     // Try to parse as JSON array directly or extract from object
     let result;
@@ -243,20 +324,28 @@ export async function fetchHTMLWithLLM(site) {
 
       // If result is wrapped in an object like {posts: [...]}, unwrap it
       if (result.posts && Array.isArray(result.posts)) {
+        logger.info('Unwrapped posts from object wrapper', { site_id: site.id });
         result = result.posts;
       } else if (!Array.isArray(result)) {
         // If it's an object but not wrapped, try to find the array
         const firstKey = Object.keys(result)[0];
         if (Array.isArray(result[firstKey])) {
+          logger.info(`Unwrapped posts from key: ${firstKey}`, {
+            site_id: site.id,
+          });
           result = result[firstKey];
         } else {
           // Fallback: wrap single object in array
+          logger.info('Wrapped single object in array', { site_id: site.id });
           result = [result];
         }
       }
     } catch (e) {
       logger.error(`Failed to parse LLM response for site ${site.title}`, {
         error: e.message,
+        site_id: site.id,
+        raw_content_preview: rawContent.substring(0, 500),
+        cleaned_content_preview: content.substring(0, 500),
       });
       return [];
     }
@@ -271,11 +360,25 @@ export async function fetchHTMLWithLLM(site) {
         date: post.date || new Date().toISOString(),
       }));
 
-    logger.info(`LLM extracted ${posts.length} posts from ${site.title}`);
+    logger.info(`LLM extracted ${posts.length} posts from ${site.title}`, {
+      site_id: site.id,
+      filtered_count: result.length - posts.length,
+    });
+
+    // Log sample of extracted posts for debugging
+    if (posts.length > 0) {
+      logger.info('Sample of extracted posts', {
+        site_id: site.id,
+        sample: posts.slice(0, 2).map((p) => ({ title: p.title, url: p.url })),
+      });
+    }
+
     return posts;
   } catch (error) {
     logger.error(`LLM extraction failed for site ${site.title}`, {
       error: error.message,
+      site_id: site.id,
+      stack: error.stack,
     });
     throw error;
   }
