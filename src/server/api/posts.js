@@ -1,5 +1,5 @@
 import * as db from '../db.js';
-import { logger, fetchUrlAsMarkdown, sendPostToSlack } from '../utils.js';
+import { logger, fetchUrlAsMarkdown, sendToSlack } from '../utils.js';
 import { summarizePost } from '../extractors.js';
 
 /**
@@ -197,7 +197,15 @@ export async function notify(req, reply) {
 
     // Send to Slack using utility function
     try {
-      await sendPostToSlack(post, webhookUrl, targetChannel);
+      const botName = db.getConfig('slack_bot_name');
+      const botIcon = db.getConfig('slack_bot_icon');
+
+      await sendToSlack(post, {
+        webhookUrl,
+        channel: targetChannel,
+        botName,
+        botIcon,
+      });
 
       // Update post as notified
       db.updatePost(postId, { notified: 1 });

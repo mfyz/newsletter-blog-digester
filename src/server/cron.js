@@ -1,10 +1,9 @@
 import cron from 'node-cron';
 import * as db from './db.js';
-import { logger } from './utils.js';
+import { logger, sendToSlack } from './utils.js';
 import {
   fetchSiteContent,
   summarizePost,
-  sendToSlack,
   cleanupOldContent,
 } from './extractors.js';
 
@@ -102,7 +101,16 @@ export async function runCheck() {
 
       if (enableCronSlackDigest === '1') {
         try {
-          const sent = await sendToSlack(newPostsForSlack);
+          const webhookUrl = db.getConfig('slack_webhook_url');
+          const botName = db.getConfig('slack_bot_name');
+          const botIcon = db.getConfig('slack_bot_icon');
+
+          const sent = await sendToSlack(newPostsForSlack, {
+            webhookUrl,
+            botName,
+            botIcon,
+          });
+
           if (sent) {
             // Mark posts as notified
             newPostsForSlack.forEach((post) => {

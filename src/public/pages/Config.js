@@ -196,6 +196,26 @@ export default function Config() {
               Example: <code class="bg-gray-100 px-1">general, tech-news, weekly-digest</code>
             </p>
 
+            <${Input}
+              label="Bot Name"
+              value=${config.slack_bot_name || ''}
+              onInput=${e => updateField('slack_bot_name', e.target.value)}
+              placeholder="Newsletter Digest Bot"
+            />
+            <p class="text-sm text-gray-500">
+              Custom bot display name (optional). If left blank, uses the webhook's configured default.
+            </p>
+
+            <${Input}
+              label="Bot Icon"
+              value=${config.slack_bot_icon || ''}
+              onInput=${e => updateField('slack_bot_icon', e.target.value)}
+              placeholder=":robot_face:"
+            />
+            <p class="text-sm text-gray-500">
+              Slack emoji name for bot icon (e.g., <code class="bg-gray-100 px-1">:robot_face:</code>, <code class="bg-gray-100 px-1">:newspaper:</code>). If left blank, uses the webhook's configured default.
+            </p>
+
             <div class="flex items-start gap-3 pt-2">
               <input
                 type="checkbox"

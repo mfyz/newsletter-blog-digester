@@ -161,72 +161,138 @@ function convertToSlackMrkdwn(text) {
 }
 
 /**
- * Send a single post to Slack webhook
- * @param {Object} post - Post object with title, url, summary
- * @param {string} webhookUrl - Slack webhook URL
- * @param {string} channel - Optional channel name (without #)
- * @returns {Promise<boolean>} - Returns true if successful, false otherwise
+ * Unified function to send posts to Slack (single post or digest)
+ * @param {Object|Array} posts - Single post object or array of posts
+ * @param {Object} options - Configuration options
+ * @param {string} options.webhookUrl - Slack webhook URL (required)
+ * @param {string} options.channel - Optional channel name (without #)
+ * @param {string} options.botName - Optional bot username override
+ * @param {string} options.botIcon - Optional bot icon emoji (e.g., :robot_face:)
+ * @returns {Promise<boolean>} - Returns true if successful
  * @throws {Error} - Throws error if webhook call fails
  */
-export async function sendPostToSlack(post, webhookUrl, channel = null) {
+export async function sendToSlack(posts, options = {}) {
+  const { webhookUrl, channel, botName, botIcon } = options;
+
   if (!webhookUrl) {
     throw new Error('Slack webhook URL not provided');
   }
 
-  if (!post || !post.title || !post.url) {
-    throw new Error('Invalid post object - title and url are required');
+  // Normalize posts to array
+  const postsArray = Array.isArray(posts) ? posts : [posts];
+
+  if (postsArray.length === 0) {
+    throw new Error('No posts provided');
+  }
+
+  // Validate posts
+  for (const post of postsArray) {
+    if (!post || !post.title || !post.url) {
+      throw new Error('Invalid post object - title and url are required');
+    }
   }
 
   try {
-    // Build Slack message using blocks for proper rendering
-    // Combine title and summary in one block for better formatting
-    let messageText = `*<${post.url}|${post.title}>*`;
+    let payload;
 
-    if (post.summary) {
-      // Convert markdown to Slack's mrkdwn format
-      const slackFormattedSummary = convertToSlackMrkdwn(post.summary);
-      // Add summary with proper line breaks
-      messageText += `\n\n${slackFormattedSummary}`;
+    // Single post: use blocks format
+    if (postsArray.length === 1) {
+      const post = postsArray[0];
+      let messageText = `*<${post.url}|${post.title}>*`;
+
+      if (post.summary) {
+        const slackFormattedSummary = convertToSlackMrkdwn(post.summary);
+        messageText += `\n\n${slackFormattedSummary}`;
+      }
+
+      payload = {
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: messageText,
+            },
+          },
+        ],
+        text: `${post.title} - ${post.url}`,
+      };
+    } else {
+      // Multiple posts: use digest format
+      const postsBySite = {};
+      postsArray.forEach((post) => {
+        const siteTitle = post.site_title || 'Unknown Source';
+        if (!postsBySite[siteTitle]) {
+          postsBySite[siteTitle] = [];
+        }
+        postsBySite[siteTitle].push(post);
+      });
+
+      let message = `*📬 New Posts Digest* (${postsArray.length} new posts)\n\n`;
+
+      for (const [siteTitle, sitePosts] of Object.entries(postsBySite)) {
+        message += `*${siteTitle}* (${sitePosts.length})\n`;
+
+        sitePosts.forEach((post) => {
+          message += `• <${post.url}|${post.title}>\n`;
+          if (post.summary) {
+            message += `  _${post.summary}_\n`;
+          }
+        });
+
+        message += '\n';
+      }
+
+      payload = {
+        text: message,
+        mrkdwn: true,
+      };
     }
-
-    const blocks = [
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: messageText,
-        },
-      },
-    ];
-
-    // Prepare payload
-    const payload = {
-      blocks: blocks,
-      // Fallback text for notifications
-      text: `${post.title} - ${post.url}`,
-    };
 
     // Add channel if specified
     if (channel) {
       payload.channel = channel.startsWith('#') ? channel : `#${channel}`;
     }
 
-    // Send to Slack with blocks
+    // Add bot name if provided
+    if (botName && botName.trim()) {
+      payload.username = botName.trim();
+    }
+
+    // Add bot icon if provided (emoji format like :robot_face:)
+    if (botIcon && botIcon.trim()) {
+      payload.icon_emoji = botIcon.trim();
+    }
+
+    logger.info('Sending to Slack', {
+      postCount: postsArray.length,
+      channel: channel || 'default',
+      hasUsername: !!payload.username,
+      hasIconEmoji: !!payload.icon_emoji,
+      username: payload.username,
+      icon_emoji: payload.icon_emoji,
+    });
+
+    // Send to Slack
     await axios.post(webhookUrl, payload);
 
-    logger.info('Post sent to Slack', {
-      postId: post.id,
-      title: post.title,
-      channel: channel || 'default'
-    });
+    logger.info(`Successfully sent ${postsArray.length} post(s) to Slack`);
     return true;
   } catch (error) {
-    logger.error('Failed to send post to Slack webhook', {
-      postId: post.id,
+    logger.error('Failed to send to Slack', {
       error: error.message,
       status: error.response?.status,
-      channel: channel || 'default'
+      channel: channel || 'default',
+      postCount: postsArray.length,
     });
     throw error;
   }
+}
+
+/**
+ * Legacy wrapper for backwards compatibility
+ * @deprecated Use sendToSlack instead
+ */
+export async function sendPostToSlack(post, webhookUrl, channel = null) {
+  return sendToSlack(post, { webhookUrl, channel });
 }

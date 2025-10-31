@@ -213,6 +213,8 @@ function seedDefaultConfig() {
     openai_model: 'gpt-3.5-turbo',
     slack_webhook_url: '',
     slack_channels: '', // Comma-separated list of channel names, first is default
+    slack_bot_name: '', // Bot display name (optional, uses webhook default if empty)
+    slack_bot_icon: '', // Bot icon emoji like :robot_face: (optional, uses webhook default if empty)
     enable_cron_slack_digest: '0', // 0 = disabled, 1 = enabled
     prompt_summarization: `You are a content summarizer. Summarize the following article content in 2-3 concise sentences. Focus on the main points and key takeaways.`,
     prompt_html_extract_base: `You are an HTML parser. Extract all posts/articles/links from the provided HTML.

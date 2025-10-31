@@ -2,7 +2,7 @@ import axios from 'axios';
 import Parser from 'rss-parser';
 import * as cheerio from 'cheerio';
 import * as db from './db.js';
-import { logger, toAbsoluteUrl } from './utils.js';
+import { logger, toAbsoluteUrl, sendToSlack } from './utils.js';
 import { OpenAIClient } from './openai-client.js';
 
 const rssParser = new Parser();
@@ -478,56 +478,6 @@ export async function summarizePost(content) {
   } catch (error) {
     logger.error('Failed to summarize post', { error: error.message });
     return null; // Return null on error so we can still save the post
-  }
-}
-
-/**
- * Send posts digest to Slack
- */
-export async function sendToSlack(posts) {
-  try {
-    const webhookUrl = db.getConfig('slack_webhook_url');
-    if (!webhookUrl) {
-      logger.warn('Slack webhook URL not configured, skipping notification');
-      return false;
-    }
-
-    // Group posts by site
-    const postsBySite = {};
-    posts.forEach((post) => {
-      if (!postsBySite[post.site_title]) {
-        postsBySite[post.site_title] = [];
-      }
-      postsBySite[post.site_title].push(post);
-    });
-
-    // Build message
-    let message = `*📬 New Posts Digest* (${posts.length} new posts)\n\n`;
-
-    for (const [siteTitle, sitePosts] of Object.entries(postsBySite)) {
-      message += `*${siteTitle}* (${sitePosts.length})\n`;
-
-      sitePosts.forEach((post) => {
-        message += `• <${post.url}|${post.title}>\n`;
-        if (post.summary) {
-          message += `  _${post.summary}_\n`;
-        }
-      });
-
-      message += '\n';
-    }
-
-    // Send to Slack
-    await axios.post(webhookUrl, {
-      text: message,
-      mrkdwn: true,
-    });
-
-    logger.info(`Sent ${posts.length} posts to Slack`);
-    return true;
-  } catch (error) {
-    logger.error('Failed to send to Slack', { error: error.message });
-    return false;
   }
 }
 

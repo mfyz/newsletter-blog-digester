@@ -1,7 +1,7 @@
 import { suite } from 'uvu';
 import * as assert from 'uvu/assert';
 import sinon from 'sinon';
-import { toAbsoluteUrl, timeAgo, logger, sendPostToSlack } from '../utils.js';
+import { toAbsoluteUrl, timeAgo, logger, sendToSlack, sendPostToSlack } from '../utils.js';
 import * as db from '../db.js';
 import axios from 'axios';
 
@@ -372,6 +372,130 @@ UtilsTests('sendPostToSlack() - should not add channel to payload if not provide
 
   const payload = axiosStub.firstCall.args[1];
   assert.not.ok(payload.channel);
+});
+
+// ========== sendToSlack() Unified Function Tests ==========
+UtilsTests('sendToSlack() - should send single post with bot name and icon', async () => {
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  const post = {
+    id: 1,
+    title: 'Test Post',
+    url: 'https://example.com/post',
+    summary: 'Test summary',
+  };
+
+  const result = await sendToSlack(post, {
+    webhookUrl: 'https://hooks.slack.com/test',
+    botName: 'Custom Bot',
+    botIcon: ':robot_face:',
+  });
+
+  assert.is(result, true);
+  assert.ok(axiosStub.calledOnce);
+
+  const payload = axiosStub.firstCall.args[1];
+  assert.is(payload.username, 'Custom Bot');
+  assert.is(payload.icon_emoji, ':robot_face:');
+});
+
+UtilsTests('sendToSlack() - should send multiple posts as digest', async () => {
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  const posts = [
+    {
+      id: 1,
+      title: 'Post 1',
+      url: 'https://example.com/post1',
+      summary: 'Summary 1',
+      site_title: 'Site A',
+    },
+    {
+      id: 2,
+      title: 'Post 2',
+      url: 'https://example.com/post2',
+      summary: 'Summary 2',
+      site_title: 'Site A',
+    },
+  ];
+
+  const result = await sendToSlack(posts, {
+    webhookUrl: 'https://hooks.slack.com/test',
+  });
+
+  assert.is(result, true);
+  assert.ok(axiosStub.calledOnce);
+
+  const payload = axiosStub.firstCall.args[1];
+  assert.ok(payload.text.includes('New Posts Digest'));
+  assert.ok(payload.text.includes('Site A'));
+  assert.ok(payload.text.includes('Post 1'));
+  assert.ok(payload.text.includes('Post 2'));
+  assert.is(payload.mrkdwn, true);
+});
+
+UtilsTests('sendToSlack() - should not add bot name/icon if not provided', async () => {
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  const post = {
+    id: 1,
+    title: 'Test Post',
+    url: 'https://example.com/post',
+  };
+
+  await sendToSlack(post, {
+    webhookUrl: 'https://hooks.slack.com/test',
+  });
+
+  const payload = axiosStub.firstCall.args[1];
+  assert.not.ok(payload.username);
+  assert.not.ok(payload.icon_emoji);
+});
+
+UtilsTests('sendToSlack() - should not add bot name/icon if empty strings', async () => {
+  const axiosStub = sinon.stub(axios, 'post').resolves({ data: 'ok' });
+
+  const post = {
+    id: 1,
+    title: 'Test Post',
+    url: 'https://example.com/post',
+  };
+
+  await sendToSlack(post, {
+    webhookUrl: 'https://hooks.slack.com/test',
+    botName: '   ',
+    botIcon: '',
+  });
+
+  const payload = axiosStub.firstCall.args[1];
+  assert.not.ok(payload.username);
+  assert.not.ok(payload.icon_emoji);
+});
+
+UtilsTests('sendToSlack() - should throw if no webhook URL', async () => {
+  const post = {
+    id: 1,
+    title: 'Test Post',
+    url: 'https://example.com/post',
+  };
+
+  try {
+    await sendToSlack(post, {});
+    assert.unreachable('Should have thrown error');
+  } catch (error) {
+    assert.ok(error.message.includes('Slack webhook URL not provided'));
+  }
+});
+
+UtilsTests('sendToSlack() - should throw if posts array is empty', async () => {
+  try {
+    await sendToSlack([], {
+      webhookUrl: 'https://hooks.slack.com/test',
+    });
+    assert.unreachable('Should have thrown error');
+  } catch (error) {
+    assert.ok(error.message.includes('No posts provided'));
+  }
 });
 
 UtilsTests.run();
