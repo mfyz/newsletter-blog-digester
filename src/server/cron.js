@@ -169,6 +169,7 @@ export function updateSchedule(schedule) {
 export function initCron() {
   try {
     const schedule = db.getConfig('schedule');
+    console.log('--> 🟧🟧🟧 CRON schedule', schedule)
     if (schedule) {
       updateSchedule(schedule);
       logger.info('Cron initialized with schedule from config');

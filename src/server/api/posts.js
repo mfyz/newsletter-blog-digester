@@ -7,7 +7,7 @@ import { summarizePost } from '../extractors.js';
  */
 export async function getAll(req, reply) {
   try {
-    const { site_id, search, limit = 100 } = req.query;
+    const { site_id, search, limit = 200 } = req.query;
 
     const posts = db.getPosts({
       site_id: site_id ? parseInt(site_id) : undefined,

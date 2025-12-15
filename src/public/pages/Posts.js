@@ -103,7 +103,7 @@ export default function Posts() {
   const loadData = async () => {
     try {
       const [postsRes, sitesRes, configRes] = await Promise.all([
-        fetch('/api/posts?limit=100'),
+        fetch('/api/posts?limit=300'),
         fetch('/api/sites'),
         fetch('/api/config')
       ]);
