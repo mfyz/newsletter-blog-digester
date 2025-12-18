@@ -8,27 +8,85 @@ import {
 } from './extractors.js';
 
 let cronTask = null;
-let isRunning = false;
+
+/**
+ * Cron job status tracking
+ * @type {{
+ *   running: boolean,
+ *   phase: 'idle' | 'fetching' | 'summarizing' | 'complete',
+ *   sites: { processed: number, total: number },
+ *   newPosts: number,
+ *   summaries: { processed: number, total: number },
+ *   startedAt: string | null,
+ *   completedAt: string | null,
+ *   error: string | null
+ * }}
+ */
+let cronStatus = {
+  running: false,
+  phase: 'idle',
+  sites: { processed: 0, total: 0 },
+  newPosts: 0, // Total new posts found
+  summaries: { processed: 0, total: 0 }, // Posts that needed summarization
+  startedAt: null,
+  completedAt: null,
+  error: null,
+};
+
+/**
+ * Get current cron job status
+ * @returns {typeof cronStatus}
+ */
+export function getStatus() {
+  return { ...cronStatus };
+}
+
+/**
+ * Reset status to initial state
+ */
+function resetStatus() {
+  cronStatus = {
+    running: false,
+    phase: 'idle',
+    sites: { processed: 0, total: 0 },
+    newPosts: 0,
+    summaries: { processed: 0, total: 0 },
+    startedAt: null,
+    completedAt: null,
+    error: null,
+  };
+}
 
 /**
  * Main cron job function - checks all active sites and processes new posts
+ * Phase 1: Fetch all sites and save posts to DB
+ * Phase 2: Summarize all queued posts with LLM
  */
 export async function runCheck() {
-  if (isRunning) {
+  if (cronStatus.running) {
     logger.warn('Cron check already running, skipping');
     return;
   }
 
-  isRunning = true;
+  // Initialize status
+  resetStatus();
+  cronStatus.running = true;
+  cronStatus.phase = 'fetching';
+  cronStatus.startedAt = new Date().toISOString();
   logger.info('Starting cron check');
 
   try {
     const sites = db.getActiveSites();
+    cronStatus.sites.total = sites.length;
     logger.info(`Checking ${sites.length} active sites`);
 
-    let totalNewPosts = 0;
+    // Queue for posts that need summarization
+    const summarizationQueue = [];
     const newPostsForSlack = [];
 
+    // ============================================
+    // PHASE 1: Fetch all sites and save posts
+    // ============================================
     for (const site of sites) {
       try {
         logger.info(`Checking site: ${site.title}`, { site_id: site.id });
@@ -43,7 +101,7 @@ export async function runCheck() {
 
         logger.info(`Fetched ${posts.length} posts from ${site.title}`);
 
-        // Process each post
+        // Process each post - save to DB and queue for summarization
         for (const post of posts) {
           // Try to create post (will return null if duplicate)
           const savedPost = db.createPost({
@@ -52,32 +110,27 @@ export async function runCheck() {
             url: post.url,
             title: post.title,
             content: post.content,
-            summary: null, // Will be filled in next step
+            summary: null, // Will be filled in summarization phase
             notified: 0,
           });
 
           // If post was saved (not duplicate)
           if (savedPost) {
-            totalNewPosts++;
-
-            // Summarize content if we have content
-            if (post.content && post.content.length > 100) {
-              try {
-                const summary = await summarizePost(post.content);
-                if (summary) {
-                  db.updatePost(savedPost.id, { summary });
-                  savedPost.summary = summary;
-                }
-              } catch (error) {
-                logger.error(`Failed to summarize post ${savedPost.id}`, {
-                  error: error.message,
-                });
-              }
-            }
+            // Track new posts count
+            cronStatus.newPosts++;
 
             // Add site title for Slack message
             savedPost.site_title = site.title;
             newPostsForSlack.push(savedPost);
+
+            // Queue for summarization if we have enough content
+            if (post.content && post.content.length > 100) {
+              summarizationQueue.push({
+                postId: savedPost.id,
+                content: post.content,
+                title: post.title,
+              });
+            }
 
             logger.info(`Saved new post: ${post.title}`, {
               site_id: site.id,
@@ -91,11 +144,50 @@ export async function runCheck() {
           site_id: site.id,
         });
       }
+
+      // Update sites progress
+      cronStatus.sites.processed++;
     }
 
-    logger.info(`Cron check complete: ${totalNewPosts} new posts found`);
+    logger.info(
+      `Phase 1 complete: ${newPostsForSlack.length} new posts found, ${summarizationQueue.length} queued for summarization`,
+    );
 
-    // Send to Slack if we have new posts and cron digest is enabled
+    // ============================================
+    // PHASE 2: Summarize all queued posts
+    // ============================================
+    cronStatus.phase = 'summarizing';
+    cronStatus.summaries.total = summarizationQueue.length;
+
+    for (const item of summarizationQueue) {
+      try {
+        const summary = await summarizePost(item.content);
+        if (summary) {
+          db.updatePost(item.postId, { summary });
+
+          // Update the post in newPostsForSlack with the summary
+          const slackPost = newPostsForSlack.find((p) => p.id === item.postId);
+          if (slackPost) {
+            slackPost.summary = summary;
+          }
+        }
+      } catch (error) {
+        logger.error(`Failed to summarize post ${item.postId}`, {
+          error: error.message,
+        });
+      }
+
+      // Update summaries progress
+      cronStatus.summaries.processed++;
+    }
+
+    logger.info(
+      `Phase 2 complete: ${cronStatus.summaries.processed} posts summarized`,
+    );
+
+    // ============================================
+    // Send to Slack if enabled
+    // ============================================
     if (newPostsForSlack.length > 0) {
       const enableCronSlackDigest = db.getConfig('enable_cron_slack_digest');
 
@@ -126,10 +218,17 @@ export async function runCheck() {
         logger.info('Cron Slack digest disabled, skipping notification');
       }
     }
+
+    logger.info(
+      `Cron check complete: ${newPostsForSlack.length} new posts found`,
+    );
   } catch (error) {
     logger.error('Cron check failed', { error: error.message });
+    cronStatus.error = error.message;
   } finally {
-    isRunning = false;
+    cronStatus.running = false;
+    cronStatus.phase = 'complete';
+    cronStatus.completedAt = new Date().toISOString();
   }
 }
 
@@ -169,7 +268,6 @@ export function updateSchedule(schedule) {
 export function initCron() {
   try {
     const schedule = db.getConfig('schedule');
-    console.log('--> 🟧🟧🟧 CRON schedule', schedule)
     if (schedule) {
       updateSchedule(schedule);
       logger.info('Cron initialized with schedule from config');
@@ -203,4 +301,4 @@ if (process.env.NODE_ENV !== 'test') {
   startCleanupJob();
 }
 
-export default { runCheck, updateSchedule, initCron };
+export default { runCheck, updateSchedule, initCron, getStatus };

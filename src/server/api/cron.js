@@ -19,3 +19,18 @@ export async function runNow(req, reply) {
     return reply.code(500).send({ error: 'Failed to start cron job' });
   }
 }
+
+/**
+ * GET /api/cron/status - Get current cron job status
+ */
+export async function getStatus(req, reply) {
+  try {
+    // Import cron manager dynamically
+    const cronManager = await import('../cron.js');
+
+    return cronManager.getStatus();
+  } catch (error) {
+    logger.error('Failed to get cron status', { error: error.message });
+    return reply.code(500).send({ error: 'Failed to get cron status' });
+  }
+}

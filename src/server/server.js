@@ -76,8 +76,9 @@ fastify.post('/api/config/test-ai', configAPI.testAI);
 // Logs routes (1 endpoint)
 fastify.get('/api/logs', logsAPI.getAll);
 
-// Cron routes (1 endpoint)
+// Cron routes (2 endpoints)
 fastify.post('/api/cron/run', cronAPI.runNow);
+fastify.get('/api/cron/status', cronAPI.getStatus);
 
 // Start server
 const start = async () => {
