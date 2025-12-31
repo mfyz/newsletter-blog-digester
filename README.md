@@ -97,6 +97,12 @@ docker compose up -d
 
 Server will be available at: **http://localhost:5566**
 
+## TODOs / Future Improvements
+
+- [ ] Editable AI summaries with custom prompts (auto-saved)
+  - [ ] Copy-ready Slack markdown export
+- [ ] Site activity stats (24h/7d post counts)
+
 ## Testing
 
 Tests use:
